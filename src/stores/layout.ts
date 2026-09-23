@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { CardConfig } from '../types'
+import type { DisplayLayout } from '../types/ipc'
 
 /**
  * 布局状态管理
@@ -25,6 +26,24 @@ export const useLayoutStore = defineStore('layout', () => {
 
   // 是否显示布局网格
   const showGrid = ref(false)
+
+  // 显示布局（多屏全屏时的屏幕数量与位置）
+  const displayLayout = ref<DisplayLayout>({
+    fullScreenState: 0,
+    screenCount: 1,
+    primaryIndex: 0,
+    screens: []
+  })
+
+  /**
+   * 主屏信息
+   */
+  const primaryScreen = computed(() => {
+    const { screens } = displayLayout.value
+    return screens[displayLayout.value.primaryIndex] || screens[0] || {
+      x: 0, y: 0, width: 0, height: 0
+    }
+  })
 
   // 计算属性
   const availableWidth = computed(() => windowSize.value.width - gridSettings.value.gap * 2)
@@ -271,7 +290,6 @@ export const useLayoutStore = defineStore('layout', () => {
    * 更新网格设置并重新计算布局 - 移除行数相关逻辑
    */
   const updateGridSettings = (newSettings: Partial<typeof gridSettings.value>): void => {
-    const oldSettings = { ...gridSettings.value }
     gridSettings.value = { ...gridSettings.value, ...newSettings }
 
     // 如果列数发生变化，重新计算布局
@@ -347,8 +365,36 @@ export const useLayoutStore = defineStore('layout', () => {
     }
   }
 
+  /**
+   * 是否处于多屏全屏
+   */
+  const isMultiScreenFullScreen = computed(
+    () => displayLayout.value.fullScreenState === 2 && displayLayout.value.screenCount > 1
+  )
+
+  /**
+   * 更新显示布局
+   */
+  const updateDisplayLayout = (layout: DisplayLayout): void => {
+    displayLayout.value = layout
+  }
+
+  /**
+   * 按数量均分卡片到各屏，余数分配给前面的屏
+   */
+  const getPerScreenCardCounts = (cardCount: number): number[] => {
+    const { screenCount } = displayLayout.value
+    if (screenCount <= 1) return [cardCount]
+    const base = Math.floor(cardCount / screenCount)
+    const remainder = cardCount % screenCount
+    return Array.from({ length: screenCount }, (_item, i) => base + (i < remainder ? 1 : 0))
+  }
+
   return {
     cardConfigs,
+    displayLayout,
+    isMultiScreenFullScreen,
+    primaryScreen,
     gridSettings,
     windowSize,
     showGrid,
@@ -371,6 +417,8 @@ export const useLayoutStore = defineStore('layout', () => {
     saveLayoutConfig,
     loadLayoutConfig,
     getCardConfig,
-    updateCardTitle
+    updateCardTitle,
+    updateDisplayLayout,
+    getPerScreenCardCounts
   }
 })

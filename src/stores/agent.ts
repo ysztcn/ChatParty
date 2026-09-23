@@ -48,7 +48,7 @@ export const useAgentStore = defineStore('agent', () => {
       const shouldApply = agent.targetProviders.length === 0
         || agent.targetProviders.includes(providerId)
       if (shouldApply) {
-        let systemPrompt = agent.systemPrompt
+        let { systemPrompt } = agent
         // 替换智能体变量
         agent.variables.forEach((v) => {
           systemPrompt = systemPrompt.replace(
@@ -70,7 +70,7 @@ export const useAgentStore = defineStore('agent', () => {
             result = skill.template.replace(/\{\{user_input\}\}/g, result)
             break
           case 'suffix':
-            result = result + '\n\n' + skill.template.replace(/\{\{user_input\}\}/g, result)
+            result = `${result}\n\n${skill.template.replace(/\{\{user_input\}\}/g, result)}`
             break
           case 'wrap':
             result = skill.template.replace(/\{\{user_input\}\}/g, result)
@@ -95,11 +95,11 @@ export const useAgentStore = defineStore('agent', () => {
    */
   function toggleSkill(skill: Skill, enabled: boolean) {
     if (enabled) {
-      if (!activeSkills.value.find(s => s.id === skill.id)) {
+      if (!activeSkills.value.find((s) => s.id === skill.id)) {
         activeSkills.value.push(skill)
       }
     } else {
-      activeSkills.value = activeSkills.value.filter(s => s.id !== skill.id)
+      activeSkills.value = activeSkills.value.filter((s) => s.id !== skill.id)
     }
     saveState()
   }
@@ -120,7 +120,7 @@ export const useAgentStore = defineStore('agent', () => {
     try {
       const state = {
         activeAgentId: activeAgent.value?.id || null,
-        activeSkillIds: activeSkills.value.map(s => s.id)
+        activeSkillIds: activeSkills.value.map((s) => s.id)
       }
       localStorage.setItem('agent-skill-state', JSON.stringify(state))
     } catch (error) {
@@ -137,10 +137,10 @@ export const useAgentStore = defineStore('agent', () => {
       if (stored) {
         const state = JSON.parse(stored)
         if (state.activeAgentId) {
-          activeAgent.value = agents.value.find(a => a.id === state.activeAgentId) || null
+          activeAgent.value = agents.value.find((a) => a.id === state.activeAgentId) || null
         }
         if (state.activeSkillIds) {
-          activeSkills.value = skills.value.filter(s => state.activeSkillIds.includes(s.id))
+          activeSkills.value = skills.value.filter((s) => state.activeSkillIds.includes(s.id))
         }
       }
     } catch (error) {

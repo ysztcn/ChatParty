@@ -22,7 +22,7 @@ const windowsCachePaths = [
   path.join(process.env.LOCALAPPDATA || '', 'electron', 'Cache')
 ]
 
-pathsToClean.forEach(dir => {
+pathsToClean.forEach((dir) => {
   const dirPath = path.join(process.cwd(), dir)
   if (fs.existsSync(dirPath)) {
     console.log(`删除: ${dir}`)
@@ -32,7 +32,7 @@ pathsToClean.forEach(dir => {
 
 // 清理 Windows 缓存
 if (process.platform === 'win32') {
-  windowsCachePaths.forEach(cachePath => {
+  windowsCachePaths.forEach((cachePath) => {
     if (fs.existsSync(cachePath)) {
       console.log(`删除 Windows 缓存: ${cachePath}`)
       try {

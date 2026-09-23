@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { ReviewResult, ReviewConfig, ReviewProgress, ReviewStatus } from '../types/review'
+import type {
+  ReviewResult, ReviewConfig, ReviewProgress, ReviewStatus
+} from '../types/review'
 
 /**
  * 评审状态管理
@@ -22,15 +24,13 @@ export const useReviewStore = defineStore('review', () => {
   })
   const history = ref<ReviewResult[]>([])
 
-  const isReviewing = computed(() =>
-    progress.value.status === 'collecting' || progress.value.status === 'reviewing'
-  )
-  const canStartReview = computed(() =>
-    progress.value.status === 'idle' || progress.value.status === 'completed' || progress.value.status === 'error'
-  )
+  const isReviewing = computed(() => progress.value.status === 'collecting' || progress.value.status === 'reviewing')
+  const canStartReview = computed(() => progress.value.status === 'idle' || progress.value.status === 'completed' || progress.value.status === 'error')
 
   function setProgress(status: ReviewStatus, message: string, collected = 0, total = 0) {
-    progress.value = { status, collectedCount: collected, totalCount: total, message }
+    progress.value = {
+      status, collectedCount: collected, totalCount: total, message
+    }
   }
 
   function setReviewResult(result: ReviewResult) {
@@ -43,7 +43,9 @@ export const useReviewStore = defineStore('review', () => {
 
   function clearReview() {
     currentResult.value = null
-    progress.value = { status: 'idle', collectedCount: 0, totalCount: 0, message: '' }
+    progress.value = {
+      status: 'idle', collectedCount: 0, totalCount: 0, message: ''
+    }
   }
 
   function updateConfig(newConfig: Partial<ReviewConfig>) {

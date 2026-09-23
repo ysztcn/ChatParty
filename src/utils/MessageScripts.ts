@@ -2,7 +2,7 @@
  * 消息发送脚本工具类
  * 提供不同AI网站的消息发送脚本
  *
- * @author huquanzhi
+ * @author 月上中天
  * @since 2024-12-19 14:30
  * @version 1.0
  */
@@ -12,38 +12,11 @@
  * @param str 要转义的字符串
  * @returns 转义后的安全字符串
  */
-import { useScriptConfigStore } from '../stores/scriptConfig'
-import type { ScriptType } from '../types'
-
-function resolveScript(
-  providerId: string,
-  scriptType: ScriptType,
-  defaultScript: string,
-  params?: Record<string, string>
-): string {
-  try {
-    const store = useScriptConfigStore()
-    const custom = store.getCustomScript(providerId, scriptType)
-    if (custom) {
-      let result = custom
-      if (params) {
-        Object.keys(params).forEach((key) => {
-          result = result.replace(new RegExp(`\\{${key}\\}`, 'g'), params[key])
-        })
-      }
-      return result
-    }
-  } catch {
-    // Store not available, use default
-  }
-  return defaultScript
-}
-
 function escapeJavaScriptString(str: string): string {
   // 使用更安全的转义方式，确保字符串在JavaScript中安全使用
   return str
     .replace(/\\/g, '\\\\') // 转义反斜杠
-    .replace(/\'/g, '\\\'') // 转义单引号
+    .replace(/'/g, '\\\'') // 转义单引号
     .replace(/"/g, '\\"') // 转义双引号
     .replace(/\n/g, '\\n') // 转义换行符
     .replace(/\r/g, '\\r') // 转义回车符
@@ -72,12 +45,11 @@ export function getSendMessageScript(providerId: string, message: string): strin
     miromind: getMiromindScript(escapedMessage),
     gemini: getGeminiScript(escapedMessage),
     chatgpt: getChatGPTScript(escapedMessage),
-    mimo: getMimoScript(escapedMessage),
-    minimax: getMinimaxScript(escapedMessage)
+    mimo: getMimoScript(escapedMessage)
   }
 
   const defaultScript = scripts[providerId] || getGenericScript(escapedMessage)
-  return resolveScript(providerId, 'sendMessage', defaultScript, { message: escapedMessage })
+  return defaultScript
 }
 
 /**
@@ -279,81 +251,151 @@ function getDeepSeekScript(escapedMessage: string): string {
 function getDouBaoScript(escapedMessage: string): string {
   return `
     (function() {
-      // --- Configuration ---
-      const CHAT_INPUT_SELECTOR = 'textarea';
-      const INPUT_SEND_DELAY_MS = 200;
+      const MESSAGE = '${escapedMessage}';
+      const INPUT_SEND_DELAY_MS = 300;
 
-      // --- Input Handling ---
+      function isVisible(el) {
+        if (!el) return false;
+        const rect = el.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      }
+
       function findChatInput() {
-        const elements = document.querySelectorAll(CHAT_INPUT_SELECTOR);
-        for (const element of elements) {
-          if (element.tagName === 'TEXTAREA' && element.hasAttribute('placeholder')) {
-            return element;
-          }
+        const contentEditable = Array.from(document.querySelectorAll('[contenteditable="true"], [contenteditable="plaintext-only"], [contenteditable=""]'));
+        for (const el of contentEditable) {
+          if (isVisible(el)) return { el: el, type: 'contenteditable' };
+        }
+        const roleTextbox = Array.from(document.querySelectorAll('[role="textbox"]'));
+        for (const el of roleTextbox) {
+          if (isVisible(el)) return { el: el, type: 'contenteditable' };
+        }
+        const textareas = Array.from(document.querySelectorAll('textarea'));
+        for (const el of textareas) {
+          if (isVisible(el)) return { el: el, type: 'textarea' };
         }
         return null;
       }
 
-      const inputElement = findChatInput();
+      const found = findChatInput();
 
-      if (!inputElement) {
-        console.error("[Input] Chat input TEXTAREA element not found using selector:", CHAT_INPUT_SELECTOR);
+      if (!found) {
+        console.error('[DouBao] Chat input element not found');
         return false;
       }
 
-      try {
-        inputElement.focus();
-        console.log("[Input] Focused the textarea element.");
+      const existingButtons = new Set();
+      document.querySelectorAll('button, [role="button"]').forEach((b) => {
+        if (isVisible(b)) existingButtons.add(b);
+      });
 
-        const newValue = '${escapedMessage}';
-
-        // 使用更可靠的方式设置input值
-        try {
-          const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-            window.HTMLTextAreaElement.prototype, 'value'
-          ).set;
-          if (nativeInputValueSetter) {
-            nativeInputValueSetter.call(inputElement, newValue);
-            console.log("Successfully set input value using native setter:", newValue);
-          } else {
-            inputElement.value = newValue;
-            console.warn("Native value setter not available. Set input value using direct assignment as a fallback.");
+      function setValue(el, type) {
+        el.focus();
+        if (type === 'contenteditable') {
+          try { el.textContent = ''; } catch (e) {}
+          let inserted = false;
+          try {
+            const selection = window.getSelection();
+            const range = document.createRange();
+            range.selectNodeContents(el);
+            selection.removeAllRanges();
+            selection.addRange(range);
+            inserted = document.execCommand('insertText', false, MESSAGE);
+          } catch (e) {}
+          if (!inserted) {
+            el.textContent = MESSAGE;
           }
-        } catch (e) {
-          console.error("Error setting input value using native setter or direct assignment:", e);
-          if (inputElement.value !== newValue) {
-            inputElement.value = newValue;
-            console.warn("Forced input value setting after error.");
+          try {
+            el.dispatchEvent(new InputEvent('beforeinput', { bubbles: true, cancelable: true, inputType: 'insertText', data: MESSAGE }));
+          } catch (e) {}
+          try {
+            el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: MESSAGE }));
+          } catch (e) {
+            el.dispatchEvent(new Event('input', { bubbles: true }));
           }
+          return true;
         }
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+        setter.call(el, MESSAGE);
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        return true;
+      }
 
-        // 触发input事件
-        const inputEvent = new Event('input', {
-          bubbles: true,
-          cancelable: false,
+      function findSendButton(el) {
+        const semanticSelectors = [
+          '[aria-label="发送"]',
+          '[aria-label*="发送"]',
+          '[aria-label*="send"]',
+          '[aria-label*="Send"]',
+          'button[type="submit"]',
+          '[data-testid*="send"]',
+          '[data-testid*="Send"]'
+        ];
+        for (const selector of semanticSelectors) {
+          const btn = document.querySelector(selector);
+          if (btn && isVisible(btn)) return btn;
+        }
+        let node = el;
+        const candidates = [];
+        const seen = new Set();
+        for (let i = 0; i < 6 && node; i++) {
+          node = node.parentElement;
+          if (!node) break;
+          const btns = node.querySelectorAll('button');
+          btns.forEach((b) => {
+            if (seen.has(b)) return;
+            seen.add(b);
+            if (isVisible(b)) candidates.push(b);
+          });
+          if (candidates.length > 0) break;
+        }
+        for (let i = candidates.length - 1; i >= 0; i--) {
+          if (candidates[i].querySelector('svg')) return candidates[i];
+        }
+        return candidates.length > 0 ? candidates[candidates.length - 1] : null;
+      }
+
+      function send(el) {
+        let btn = null;
+        const newButtons = [];
+        document.querySelectorAll('button, [role="button"]').forEach((b) => {
+          if (isVisible(b) && !existingButtons.has(b)) newButtons.push(b);
         });
-
-        inputElement.dispatchEvent(inputEvent);
-        console.log("Simulated 'input' event dispatched.");
-
-        // 延迟后发送Enter键事件
-        setTimeout(() => {
-          const enterEvent = new KeyboardEvent('keydown', {
+        for (let i = newButtons.length - 1; i >= 0; i--) {
+          if (newButtons[i].querySelector('svg')) { btn = newButtons[i]; break; }
+        }
+        if (!btn && newButtons.length > 0) btn = newButtons[newButtons.length - 1];
+        if (!btn) btn = findSendButton(el);
+        if (btn) {
+          try {
+            btn.disabled = false;
+            btn.removeAttribute('disabled');
+            if (btn.getAttribute('aria-disabled') === 'true') btn.setAttribute('aria-disabled', 'false');
+          } catch (e) {}
+          ['mousedown', 'mouseup', 'click'].forEach((eventType) => {
+            btn.dispatchEvent(new MouseEvent(eventType, { bubbles: true, cancelable: true, view: window }));
+          });
+          return true;
+        }
+        ['keydown', 'keypress', 'keyup'].forEach((eventType) => {
+          const ev = new KeyboardEvent(eventType, {
             bubbles: true,
             cancelable: true,
             key: 'Enter',
             code: 'Enter',
             keyCode: 13,
-            which: 13,
+            which: 13
           });
+          el.dispatchEvent(ev);
+        });
+        return false;
+      }
 
-          const dispatched = inputElement.dispatchEvent(enterEvent);
-          console.log("[Input] Dispatched 'keydown' (Enter) after delay. Event cancellation status: " + !dispatched + '.');
-        }, INPUT_SEND_DELAY_MS);
-
+      try {
+        setValue(found.el, found.type);
+        setTimeout(() => { send(found.el); }, INPUT_SEND_DELAY_MS);
         return true;
       } catch (e) {
-        console.error("[Input] Error during input simulation:", e);
+        console.error('[DouBao] Error during send:', e);
         return false;
       }
     })()
@@ -366,79 +408,143 @@ function getDouBaoScript(escapedMessage: string): string {
 function getQwenScript(escapedMessage: string): string {
   return `
     (function() {
-      // --- Configuration ---
-      const CHAT_INPUT_SELECTOR = 'textarea';
-      const INPUT_SEND_DELAY_MS = 1000;
+      const MESSAGE = '${escapedMessage}';
+      const INPUT_SEND_DELAY_MS = 300;
 
-      // --- Input Handling ---
+      function isVisible(el) {
+        if (!el) return false;
+        const rect = el.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      }
+
       function findChatInput() {
-        const element = document.querySelector(CHAT_INPUT_SELECTOR);
-        if (element && element.tagName === 'TEXTAREA') {
-          return element;
+        const contentEditable = Array.from(document.querySelectorAll('[contenteditable="true"], [contenteditable="plaintext-only"], [contenteditable=""]'));
+        for (const el of contentEditable) {
+          if (isVisible(el)) return { el: el, type: 'contenteditable' };
+        }
+        const roleTextbox = Array.from(document.querySelectorAll('[role="textbox"]'));
+        for (const el of roleTextbox) {
+          if (isVisible(el)) return { el: el, type: 'contenteditable' };
+        }
+        const textareas = Array.from(document.querySelectorAll('textarea'));
+        const withPlaceholder = textareas.filter((el) => el.hasAttribute('placeholder'));
+        for (const el of withPlaceholder) {
+          if (isVisible(el)) return { el: el, type: 'textarea' };
+        }
+        for (const el of textareas) {
+          if (isVisible(el)) return { el: el, type: 'textarea' };
         }
         return null;
       }
 
-      const inputElement = findChatInput();
+      const found = findChatInput();
 
-      if (!inputElement) {
-        console.error("[Input] Chat input TEXTAREA element not found using selector:", CHAT_INPUT_SELECTOR);
+      if (!found) {
+        console.error('[Qwen] Chat input element not found');
         return false;
       }
 
-      try {
-        inputElement.focus();
-        console.log("[Input] Focused the textarea element.");
-
-        const newValue = '${escapedMessage}';
-
-        // 使用更可靠的方式设置input值
-        try {
-          const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-            window.HTMLTextAreaElement.prototype, 'value'
-          ).set;
-          if (nativeInputValueSetter) {
-            nativeInputValueSetter.call(inputElement, newValue);
-            console.log("Successfully set input value using native setter:", newValue);
-          } else {
-            inputElement.value = newValue;
-            console.warn("Native value setter not available. Set input value using direct assignment as a fallback.");
+      function setValue(el, type) {
+        el.focus();
+        if (type === 'contenteditable') {
+          try { el.textContent = ''; } catch (e) {}
+          let inserted = false;
+          try {
+            const selection = window.getSelection();
+            const range = document.createRange();
+            range.selectNodeContents(el);
+            selection.removeAllRanges();
+            selection.addRange(range);
+            inserted = document.execCommand('insertText', false, MESSAGE);
+          } catch (e) {
+            console.warn('[Qwen] execCommand failed:', e);
           }
-        } catch (e) {
-          console.error("Error setting input value using native setter or direct assignment:", e);
-          if (inputElement.value !== newValue) {
-            inputElement.value = newValue;
-            console.warn("Forced input value setting after error.");
+          if (!inserted) {
+            el.textContent = MESSAGE;
           }
+          try {
+            el.dispatchEvent(new InputEvent('beforeinput', { bubbles: true, cancelable: true, inputType: 'insertText', data: MESSAGE }));
+          } catch (e) {}
+          try {
+            el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: MESSAGE }));
+          } catch (e) {
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+          return true;
         }
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+        setter.call(el, MESSAGE);
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        return true;
+      }
 
-        // 触发input事件
-        const inputEvent = new Event('input', {
-          bubbles: true,
-          cancelable: false,
-        });
+      function findSendButton(el) {
+        const exact = document.querySelector('[aria-label="发送消息"]');
+        if (exact && isVisible(exact)) return exact;
+        const semanticSelectors = [
+          '[aria-label="发送"]',
+          '[aria-label*="发送"]',
+          '[aria-label*="send"]',
+          '[aria-label*="Send"]',
+          'button[type="submit"]'
+        ];
+        for (const selector of semanticSelectors) {
+          const btn = document.querySelector(selector);
+          if (btn && !btn.disabled && isVisible(btn)) return btn;
+        }
+        let node = el;
+        const candidates = [];
+        const seen = new Set();
+        for (let i = 0; i < 6 && node; i++) {
+          node = node.parentElement;
+          if (!node) break;
+          const btns = node.querySelectorAll('button');
+          btns.forEach((b) => {
+            if (seen.has(b)) return;
+            seen.add(b);
+            if (!b.disabled && isVisible(b)) candidates.push(b);
+          });
+          if (candidates.length > 0) break;
+        }
+        for (let i = candidates.length - 1; i >= 0; i--) {
+          if (candidates[i].querySelector('svg')) return candidates[i];
+        }
+        return candidates.length > 0 ? candidates[candidates.length - 1] : null;
+      }
 
-        inputElement.dispatchEvent(inputEvent);
-        console.log("Simulated 'input' event dispatched.");
-
-        // 延迟后发送Enter键事件
-        setTimeout(() => {
-          const enterEvent = new KeyboardEvent('keydown', {
+      function send(el) {
+        const btn = findSendButton(el);
+        if (btn) {
+          try {
+            btn.disabled = false;
+            btn.removeAttribute('disabled');
+            if (btn.getAttribute('aria-disabled') === 'true') btn.setAttribute('aria-disabled', 'false');
+          } catch (e) {}
+          ['mousedown', 'mouseup', 'click'].forEach((eventType) => {
+            btn.dispatchEvent(new MouseEvent(eventType, { bubbles: true, cancelable: true, view: window }));
+          });
+          return true;
+        }
+        ['keydown', 'keypress', 'keyup'].forEach((eventType) => {
+          const ev = new KeyboardEvent(eventType, {
             bubbles: true,
             cancelable: true,
             key: 'Enter',
             code: 'Enter',
             keyCode: 13,
-            which: 13,
+            which: 13
           });
+          el.dispatchEvent(ev);
+        });
+        return false;
+      }
 
-          const dispatched = inputElement.dispatchEvent(enterEvent);
-          console.log("[Input] Dispatched 'keydown' (Enter) after delay. Event cancellation status: " + !dispatched + '.');
-        }, INPUT_SEND_DELAY_MS);
-
+      try {
+        setValue(found.el, found.type);
+        setTimeout(() => { send(found.el); }, INPUT_SEND_DELAY_MS);
         return true;
       } catch (e) {
-        console.error("[Input] Error during input simulation:", e);
+        console.error('[Qwen] Error during send:', e);
         return false;
       }
     })()
@@ -650,72 +756,6 @@ function getChatGPTScript(escapedMessage: string, chatInputSelector: string = '[
  */
 function getMimoScript(escapedMessage: string): string {
   return getDeepSeekScript(escapedMessage)
-}
-
-/**
- * Minimax发送脚本
- */
-function getMinimaxScript(escapedMessage: string): string {
-  return `
-    (function() {
-      // --- Configuration ---
-      const CHAT_INPUT_SELECTOR = '[contenteditable="true"]';
-      const INPUT_SEND_DELAY_MS = 500;
-
-      // --- Input Handling ---
-      function findChatInput() {
-        const element = document.querySelector(CHAT_INPUT_SELECTOR);
-        if (element) {
-          return element;
-        }
-        return null;
-      }
-
-      const inputElement = findChatInput();
-
-      if (!inputElement) {
-        console.error("[Input] Chat input TEXTAREA element not found using selector:", CHAT_INPUT_SELECTOR);
-        return false;
-      }
-
-      try {
-        inputElement.focus();
-        console.log("[Input] Focused the input element.");
-
-        const newValue = '${escapedMessage}';
-        inputElement.textContent = newValue;
-
-        // 触发input事件
-        const inputEvent = new Event('input', {
-          bubbles: true,
-          cancelable: false,
-        });
-
-        inputElement.dispatchEvent(inputEvent);
-        console.log("Simulated 'input' event dispatched.");
-
-        // 延迟后发送Enter键事件
-        setTimeout(() => {
-          const enterEvent = new KeyboardEvent('keydown', {
-            bubbles: true,
-            cancelable: true,
-            key: 'Enter',
-            code: 'Enter',
-            keyCode: 13,
-            which: 13,
-          });
-
-          const dispatched = inputElement.dispatchEvent(enterEvent);
-          console.log("[Input] Dispatched 'keydown' (Enter) after delay. Event cancellation status: " + !dispatched + '.');
-        }, INPUT_SEND_DELAY_MS);
-
-        return true;
-      } catch (e) {
-        console.error("[Input] Error during input simulation:", e);
-        return false;
-      }
-    })()
-  `
 }
 
 /**

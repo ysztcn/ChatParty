@@ -340,16 +340,12 @@ const cardStyle = computed(() => {
   }
 })
 
-const webviewStyle = computed(() => {
-  // WebView 容器使用 flex: 1 自适应高度（见下方 CSS），
-  // 不再用内联像素高度，避免覆盖父级 grid 拉伸效果。
-  return {}
-})
+// WebView 容器使用 flex: 1 自适应高度，不用内联像素高度，避免覆盖父级 grid 拉伸效果
+const webviewStyle = computed(() => ({}))
 
+// 只有在 provider 启用且不在初始加载状态时才显示 WebView
 const shouldShowWebView = computed(
-  () =>
-    // 只有在provider启用且不在初始加载状态时才显示WebView
-    props.provider.isEnabled && props.provider.loadingState !== 'idle'
+  () => props.provider.isEnabled && props.provider.loadingState !== 'idle'
 )
 
 const webviewWidth = computed(() => {
@@ -682,7 +678,7 @@ const saveProxyConfig = async(): Promise<void> => {
       }
 
       // 验证端口号
-      const port = parseInt(proxyConfig.value.port)
+      const port = parseInt(proxyConfig.value.port, 10)
       if (port < 1 || port > 65535) {
         ElMessage.error('端口号必须在1-65535之间')
         return

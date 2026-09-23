@@ -1,30 +1,4 @@
-import { useScriptConfigStore } from '../stores/scriptConfig'
-import { useChatStore } from '../stores'
-import type { ScriptType, UploadFileData } from '../types'
-
-function resolveScript(
-  providerId: string,
-  scriptType: ScriptType,
-  defaultScript: string,
-  params?: Record<string, string>
-): string {
-  try {
-    const store = useScriptConfigStore()
-    const custom = store.getCustomScript(providerId, scriptType)
-    if (custom) {
-      let result = custom
-      if (params) {
-        Object.keys(params).forEach((key) => {
-          result = result.replace(new RegExp(`\\{${key}\\}`, 'g'), params[key])
-        })
-      }
-      return result
-    }
-  } catch {
-    // Store not available
-  }
-  return defaultScript
-}
+import type { UploadFileData } from '../types'
 
 function getBase64ToFileCode(file: UploadFileData): string {
   return `
@@ -119,7 +93,10 @@ function getDeepSeekUploadScript(file: UploadFileData): string {
   var fileObj = base64ToFile();
   var textarea = document.querySelector('textarea');
   var inputArea = textarea
-    ? textarea.closest('form') || textarea.closest('[class*="chat"]') || textarea.closest('[class*="input"]') || textarea.parentElement.parentElement
+    ? textarea.closest('form')
+      || textarea.closest('[class*="chat"]')
+      || textarea.closest('[class*="input"]')
+      || textarea.parentElement.parentElement
     : document.body;
   var allFileInputs = document.querySelectorAll('input[type="file"]');
   if (allFileInputs.length > 0) {
@@ -367,7 +344,8 @@ function getGenericUploadScript(file: UploadFileData): string {
     return { success: true, message: 'Injected into file input' };
   }
   var uploadBtn = document.querySelector(
-    'button[class*="upload" i], button[class*="attach" i], button[aria-label*="upload" i], button[aria-label*="attach" i], label[for*="upload"], label[for*="file"]'
+    'button[class*="upload" i], button[class*="attach" i], button[aria-label*="upload" i], '
+    + 'button[aria-label*="attach" i], label[for*="upload"], label[for*="file"]'
   );
   if (uploadBtn) {
     uploadBtn.click();
@@ -401,36 +379,17 @@ export function getFileUploadScript(providerId: string, file: UploadFileData): s
     copilot: getGenericUploadScript(file),
     glm: getGLMUploadScript(file),
     miromind: getGenericUploadScript(file),
-    mimo: getMimoUploadScript(file),
-    minimax: getGenericUploadScript(file)
+    mimo: getMimoUploadScript(file)
   }
 
   const defaultScript = scripts[providerId] || getGenericUploadScript(file)
 
-  try {
-    const chatStore = useChatStore()
-    const provider = chatStore.getProvider(providerId)
-    if (provider?.isCustom && provider.customConfig?.fileUploadScript) {
-      return resolveScript(providerId, 'fileUpload', provider.customConfig.fileUploadScript, {
-        name: file.name,
-        mimeType: file.mimeType,
-        base64: file.base64
-      })
-    }
-  } catch {
-    // Store not available
-  }
-
-  return resolveScript(providerId, 'fileUpload', defaultScript, {
-    name: file.name,
-    mimeType: file.mimeType,
-    base64: file.base64
-  })
+  return defaultScript
 }
 
 export function getFileUploadSupportedProviders(): string[] {
   return [
     'chatgpt', 'gemini', 'deepseek', 'kimi', 'doubao', 'qwen',
-    'grok', 'yuanbao', 'copilot', 'glm', 'miromind', 'mimo', 'minimax'
+    'grok', 'yuanbao', 'copilot', 'glm', 'miromind', 'mimo'
   ]
 }

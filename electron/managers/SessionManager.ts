@@ -181,14 +181,14 @@ export class SessionManager extends EventEmitter {
     }
 
     // 设置权限处理
-    electronSession.setPermissionRequestHandler((webContents, permission, callback) => {
+    electronSession.setPermissionRequestHandler((_webContents, permission, callback) => {
       // 允许必要的权限
       const allowedPermissions = ['notifications', 'clipboard-read', 'clipboard-write']
       callback(allowedPermissions.includes(permission))
     })
 
     // 设置证书验证
-    electronSession.setCertificateVerifyProc((request, callback) => {
+    electronSession.setCertificateVerifyProc((_request, callback) => {
       // 在生产环境中应该进行适当的证书验证
       callback(0) // 0 表示信任证书
     })
@@ -285,9 +285,10 @@ export class SessionManager extends EventEmitter {
           const policies = Array.isArray(responseHeaders['permissions-policy'])
             ? responseHeaders['permissions-policy']
             : [responseHeaders['permissions-policy']]
-          responseHeaders['permissions-policy'] = policies.map((policy: string) =>
-            // 移除ch-ua-form-factors相关的策略
-            policy.replace(/ch-ua-form-factors[^,]*,?/g, '').replace(/,,/g, ',').replace(/,$/, ''))
+          // 移除 ch-ua-form-factors 相关策略
+          responseHeaders['permissions-policy'] = policies.map(
+            (policy: string) => policy.replace(/ch-ua-form-factors[^,]*,?/g, '').replace(/,,/g, ',').replace(/,$/, '')
+          )
         }
 
         // 修改CSP策略，允许嵌入
@@ -617,7 +618,7 @@ export class SessionManager extends EventEmitter {
   async cleanupExpiredSessions(maxAge: number = 24 * 60 * 60 * 1000): Promise<string[]> {
     const expiredSessions: string[] = []
 
-    for (const [providerId, sessionData] of Array.from(this.sessions.entries())) {
+    for (const [providerId, _sessionData] of Array.from(this.sessions.entries())) {
       if (this.isSessionExpired(providerId, maxAge)) {
         await this.clearSession(providerId)
         expiredSessions.push(providerId)

@@ -78,6 +78,7 @@ export default defineConfig({
   },
   build: {
     outDir,
+    emptyOutDir: true,
     assetsDir: 'assets',
     sourcemap: false,
     minify: 'terser',
@@ -107,16 +108,15 @@ export default defineConfig({
             return 'assets/[name]-[hash].[ext]'
           }
           const info = assetInfo.names
-          const extType = info[info.length - 1]
-          for (const key in assetInfo.names) {
-            if (/\.(png|jpe?g|gif|svg)(\?.*)?$/.test(key)) {
-              return `images/[name]-[hash].${extType}`
-            }
-            if (/\.(woff2?|eot|ttf|otf)(\?.*)?$/i.test(key)) {
-              return `fonts/[name]-[hash].${extType}`
-            }
+          const assetName = info[info.length - 1]
+          const ext = assetName.includes('.') ? assetName.split('.').pop() || '' : ''
+          if (/\.(png|jpe?g|gif|svg)(\?.*)?$/i.test(assetName)) {
+            return `images/[name]-[hash].${ext}`
           }
-          return `assets/[name]-[hash].${extType}`
+          if (/\.(woff2?|eot|ttf|otf)(\?.*)?$/i.test(assetName)) {
+            return `fonts/[name]-[hash].${ext}`
+          }
+          return `assets/[name]-[hash].${ext}`
         }
       },
       external: ['electron']

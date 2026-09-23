@@ -15,11 +15,11 @@ import type { DiscussionUtterance, DiscussionMode } from '../types/discussion'
 import { getSendMessageScript } from '../utils/GetLLMLastMessage'
 import { generateDiscussionPrompt } from '../utils/DiscussionPrompts'
 import { useDiscussionStore } from '../stores/discussion'
-import { useChatStore } from '../stores'
 import { ElMessage } from 'element-plus'
 
 export class DiscussionService {
   private static instance: DiscussionService
+
   private abortFlag = false
 
   static getInstance(): DiscussionService {
@@ -53,10 +53,10 @@ export class DiscussionService {
     this.abortFlag = false
 
     // 初始化讨论会话
-    discussionStore.initSession(originalQuery, participantProviders.map(p => p.id), {
+    discussionStore.initSession(originalQuery, participantProviders.map((p) => p.id), {
       mode,
       maxRounds,
-      participantIds: participantProviders.map(p => p.id)
+      participantIds: participantProviders.map((p) => p.id)
     })
 
     discussionStore.setSessionStatus('running')
@@ -292,9 +292,9 @@ export class DiscussionService {
 
       const result = await Promise.race([
         window.electronAPI.executeScriptInWebView(provider.webviewId, script),
-        new Promise<never>((_, reject) =>
+        new Promise<never>((_resolve, reject) => {
           setTimeout(() => reject(new Error('提取脚本执行超时')), 15000)
-        )
+        })
       ])
 
       // 解析结果
@@ -325,7 +325,9 @@ export class DiscussionService {
   }
 
   private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms))
+    return new Promise((resolve) => {
+      setTimeout(resolve, ms)
+    })
   }
 }
 

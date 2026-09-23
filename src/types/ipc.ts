@@ -70,7 +70,11 @@ export enum IPCChannel {
   // 文件操作
   FILE_OPEN_DIALOG = 'file:open-dialog',
   FILE_READ = 'file:read',
-  FILE_UPLOAD_TO_WEBVIEW = 'file:upload-to-webview'
+  FILE_UPLOAD_TO_WEBVIEW = 'file:upload-to-webview',
+
+  // 显示布局
+  DISPLAY_GET_LAYOUT = 'display:get-layout',
+  DISPLAY_LAYOUT_CHANGE = 'display:layout-change'
 }
 
 /**
@@ -395,6 +399,9 @@ export interface IPCEventDataMap {
   [IPCChannel.FILE_OPEN_DIALOG]: FileOpenDialogRequest
   [IPCChannel.FILE_READ]: FileReadRequest
   [IPCChannel.FILE_UPLOAD_TO_WEBVIEW]: FileUploadToWebViewRequest
+
+  [IPCChannel.DISPLAY_GET_LAYOUT]: {}
+  [IPCChannel.DISPLAY_LAYOUT_CHANGE]: DisplayLayout
 }
 
 export interface FileOpenDialogRequest {
@@ -436,4 +443,19 @@ export interface FileUploadToWebViewResponse {
   success: boolean
   providerId: string
   error?: string
+}
+
+/**
+ * 显示布局信息
+ */
+export interface DisplayLayout {
+  fullScreenState: 0 | 1 | 2
+  screenCount: number
+  primaryIndex: number
+  screens: Array<{
+    x: number
+    y: number
+    width: number
+    height: number
+  }>
 }

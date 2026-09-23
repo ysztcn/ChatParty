@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { DiscussionSession, DiscussionConfig, DiscussionProgress, DiscussionRound, DiscussionUtterance } from '../types/discussion'
+import type {
+  DiscussionSession, DiscussionConfig, DiscussionProgress, DiscussionUtterance
+} from '../types/discussion'
 
 /**
  * 多模型对话讨论状态管理
@@ -27,7 +29,7 @@ export const useDiscussionStore = defineStore('discussion', () => {
   const isRunning = computed(() => session.value?.status === 'running')
   const allUtterances = computed(() => {
     if (!session.value) return []
-    return session.value.rounds.flatMap(r => r.utterances)
+    return session.value.rounds.flatMap((r) => r.utterances)
   })
 
   function setProgress(message: string) {
@@ -82,7 +84,9 @@ export const useDiscussionStore = defineStore('discussion', () => {
 
   function clearSession() {
     session.value = null
-    progress.value = { status: 'idle', currentRound: 0, maxRounds: 0, currentSpeaker: '', message: '' }
+    progress.value = {
+      status: 'idle', currentRound: 0, maxRounds: 0, currentSpeaker: '', message: ''
+    }
   }
 
   function updateConfig(newConfig: Partial<DiscussionConfig>) {

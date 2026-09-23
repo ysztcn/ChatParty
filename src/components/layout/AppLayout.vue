@@ -1,7 +1,8 @@
 <template>
   <div
     class="app-layout"
-    :class="{ 'dark-mode': isDarkMode }"
+    :class="{ 'dark-mode': isDarkMode, 'multi-screen': isMultiScreen }"
+    :style="layoutVars"
   >
     <!-- 顶部导航栏 -->
     <AppHeader />
@@ -18,14 +19,25 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useAppStore } from '../../stores'
+import { useAppStore, useLayoutStore } from '../../stores'
 import AppHeader from './AppHeader.vue'
 import AppFooter from './AppFooter.vue'
 
 const appStore = useAppStore()
+const layoutStore = useLayoutStore()
 
 // 计算属性
 const isDarkMode = computed(() => appStore.isDarkMode)
+const isMultiScreen = computed(() => layoutStore.isMultiScreenFullScreen)
+
+const layoutVars = computed(() => {
+  if (!isMultiScreen.value) return {}
+  const primary = layoutStore.primaryScreen
+  return {
+    '--primary-x': `${primary.x}px`,
+    '--primary-w': `${primary.width}px`
+  }
+})
 </script>
 
 <style scoped>
@@ -44,6 +56,24 @@ const isDarkMode = computed(() => appStore.isDarkMode)
   flex: 1;
   overflow: hidden;
   position: relative;
+}
+
+.multi-screen :deep(.app-header) {
+  position: fixed;
+  top: 0;
+  left: var(--primary-x);
+  width: var(--primary-w);
+  height: 60px;
+  z-index: 200;
+}
+
+.multi-screen :deep(.app-footer) {
+  position: fixed;
+  bottom: 0;
+  left: var(--primary-x);
+  width: var(--primary-w);
+  height: 32px;
+  z-index: 200;
 }
 
 .dark-mode {

@@ -25,6 +25,8 @@ module.exports = {
   rules: {
     // TypeScript 相关规则
     'no-unused-vars': 'off',
+    // TS 已负责检查未定义变量，no-undef 对类型空间误报
+    'no-undef': 'off',
 
     // Vue 相关规则
     'vue/multi-word-component-names': 'off',
@@ -49,7 +51,27 @@ module.exports = {
     'import/no-named-as-default-member': 'off',
     'class-methods-use-this': 'off',
     'no-use-before-define': 'off',
-    'max-len': ['error', { code: 120 }],
+    // Electron / 业务代码中顺序控制流与参数属性修改是常见写法
+    'no-restricted-syntax': 'off',
+    'no-await-in-loop': 'off',
+    'no-plusplus': 'off',
+    'no-continue': 'off',
+    'no-param-reassign': 'off',
+    'global-require': 'off',
+    'no-nested-ternary': 'off',
+    'no-promise-executor-return': 'off',
+    'max-classes-per-file': 'off',
+    'no-shadow': 'off',
+    'func-names': 'off',
+    'default-case': 'off',
+    'max-len': ['error', {
+      code: 120,
+      ignoreStrings: true,
+      ignoreTemplateLiterals: true,
+      ignoreComments: true,
+      ignoreUrls: true,
+      ignoreRegExpLiterals: true
+    }],
     semi: ['error', 'never'],
     quotes: ['error', 'single'],
     'comma-dangle': ['error', 'never'],
@@ -59,7 +81,13 @@ module.exports = {
     'keyword-spacing': ['error', { before: true, after: true }],
     'space-infix-ops': 'error',
     'eol-last': ['error', 'always'],
-    'no-trailing-spaces': 'error'
+    'no-trailing-spaces': 'error',
+    'linebreak-style': 'off',
+    // 渲染受信任的 Markdown 内容
+    'vue/no-v-html': 'off',
+    'function-paren-newline': 'off',
+    'implicit-arrow-linebreak': 'off',
+    'operator-linebreak': 'off'
   },
   settings: {
     'import/resolver': {

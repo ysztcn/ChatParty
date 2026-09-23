@@ -2,7 +2,7 @@
  * AI状态监控脚本工具类
  * 提供不同AI网站的状态监控脚本，用于检测AI是否正在回复
  *
- * @author huquanzhi
+ * @author 月上中天
  * @since 2025-10-11 15:57
  * @version 1.0
  */
@@ -12,33 +12,6 @@
  * @param providerId AI提供商ID
  * @returns 对应的JavaScript脚本字符串
  */
-import { useScriptConfigStore } from '../stores/scriptConfig'
-import type { ScriptType } from '../types'
-
-function resolveScript(
-  providerId: string,
-  scriptType: ScriptType,
-  defaultScript: string,
-  params?: Record<string, string>
-): string {
-  try {
-    const store = useScriptConfigStore()
-    const custom = store.getCustomScript(providerId, scriptType)
-    if (custom) {
-      let result = custom
-      if (params) {
-        Object.keys(params).forEach((key) => {
-          result = result.replace(new RegExp(`\\{${key}\\}`, 'g'), params[key])
-        })
-      }
-      return result
-    }
-  } catch {
-    // Store not available, use default
-  }
-  return defaultScript
-}
-
 export function getStatusMonitorScript(providerId: string): string {
   const scripts: Record<string, (id: string) => string> = {
     doubao: getDouBaoStatusMonitorScript,
@@ -52,13 +25,12 @@ export function getStatusMonitorScript(providerId: string): string {
     miromind: getMiromindStatusMonitorScript,
     gemini: getGeminiStatusMonitorScript,
     chatgpt: getChatGPTStatusMonitorScript,
-    mimo: getMimoStatusMonitorScript,
-    minimax: getMinimaxStatusMonitorScript
+    mimo: getMimoStatusMonitorScript
   }
 
   const scriptGenerator = scripts[providerId]
   const defaultScript = scriptGenerator ? scriptGenerator(providerId) : getGenericStatusMonitorScript(providerId, '')
-  return resolveScript(providerId, 'statusMonitor', defaultScript, { providerId })
+  return defaultScript
 }
 
 /**
@@ -448,13 +420,6 @@ function getMimoStatusMonitorScript(providerId: string): string {
 }
 
 /**
- * minimax状态监控脚本
- */
-function getMinimaxStatusMonitorScript(providerId: string): string {
-  return getGenericStatusMonitorScript(providerId, '#message-container')
-}
-
-/**
  * 获取所有支持的AI提供商列表
  */
 export function getSupportedProviders(): string[] {
@@ -470,8 +435,7 @@ export function getSupportedProviders(): string[] {
     'miromind',
     'gemini',
     'chatgpt',
-    'mimo',
-    'minimax'
+    'mimo'
   ]
 }
 

@@ -1,16 +1,31 @@
 <template>
-  <div class="side-panel" :class="{ collapsed: isCollapsed }">
+  <div
+    class="side-panel"
+    :class="{ collapsed: isCollapsed }"
+  >
     <!-- 收起时的展开按钮 -->
-    <div v-if="isCollapsed" class="expand-trigger" @click="toggleCollapse" title="展开面板">
+    <div
+      v-if="isCollapsed"
+      class="expand-trigger"
+      title="展开面板"
+      @click="toggleCollapse"
+    >
       <el-icon :size="18">
         <ArrowLeft />
       </el-icon>
     </div>
 
     <!-- 侧边栏内容 -->
-    <div v-show="!isCollapsed" class="sidebar-content">
+    <div
+      v-show="!isCollapsed"
+      class="sidebar-content"
+    >
       <!-- 右上角关闭按钮 -->
-      <div class="panel-close-btn" @click="toggleCollapse" title="关闭面板">
+      <div
+        class="panel-close-btn"
+        title="关闭面板"
+        @click="toggleCollapse"
+      >
         <el-icon :size="14">
           <Close />
         </el-icon>
@@ -18,19 +33,31 @@
 
       <!-- Tab 切换 -->
       <div class="sidebar-tabs">
-        <div class="tab-item" :class="{ active: activeTab === 'comparison' }" @click="activeTab = 'comparison'">
+        <div
+          class="tab-item"
+          :class="{ active: activeTab === 'comparison' }"
+          @click="activeTab = 'comparison'"
+        >
           <el-icon :size="14">
             <ScaleToOriginal />
           </el-icon>
           <span>对比</span>
         </div>
-        <div class="tab-item" :class="{ active: activeTab === 'summary' }" @click="activeTab = 'summary'">
+        <div
+          class="tab-item"
+          :class="{ active: activeTab === 'summary' }"
+          @click="activeTab = 'summary'"
+        >
           <el-icon :size="14">
             <DocumentChecked />
           </el-icon>
           <span>总结</span>
         </div>
-        <div class="tab-item" :class="{ active: activeTab === 'discussion' }" @click="activeTab = 'discussion'">
+        <div
+          class="tab-item"
+          :class="{ active: activeTab === 'discussion' }"
+          @click="activeTab = 'discussion'"
+        >
           <el-icon :size="14">
             <ChatLineRound />
           </el-icon>
@@ -39,36 +66,68 @@
       </div>
 
       <!-- 对比面板 -->
-      <div v-show="activeTab === 'comparison'" class="tab-panel comparison-panel-wrapper">
+      <div
+        v-show="activeTab === 'comparison'"
+        class="tab-panel comparison-panel-wrapper"
+      >
         <ComparisonPanel />
       </div>
 
       <!-- 总结面板 -->
-      <div v-show="activeTab === 'summary'" class="tab-panel">
+      <div
+        v-show="activeTab === 'summary'"
+        class="tab-panel"
+      >
         <div class="panel-header">
           <span class="header-title">AI 总结</span>
-          <el-select v-model="selectedModelId" size="small" class="model-select" @change="handleModelChange">
-            <el-option v-for="p in availableProviders" :key="p.id" :label="p.name" :value="p.id">
+          <el-select
+            v-model="selectedModelId"
+            size="small"
+            class="model-select"
+            @change="handleModelChange"
+          >
+            <el-option
+              v-for="p in availableProviders"
+              :key="p.id"
+              :label="p.name"
+              :value="p.id"
+            >
               <div class="provider-option">
-                <img :src="p.icon" class="provider-icon-small" @error="handleIconError">
+                <img
+                  :src="p.icon"
+                  class="provider-icon-small"
+                  @error="handleIconError"
+                >
                 <span>{{ p.name }}</span>
               </div>
             </el-option>
           </el-select>
         </div>
         <div class="ai-card-container">
-          <AICard v-if="provider" :key="summaryProviderId" :provider="provider" :config="cardConfig"
-            class="summary-ai-card" />
+          <AICard
+            v-if="provider"
+            :key="summaryProviderId"
+            :provider="provider"
+            :config="cardConfig"
+            class="summary-ai-card"
+          />
         </div>
       </div>
 
       <!-- 讨论面板 -->
-      <div v-show="activeTab === 'discussion'" class="tab-panel discussion-panel-wrapper">
+      <div
+        v-show="activeTab === 'discussion'"
+        class="tab-panel discussion-panel-wrapper"
+      >
         <DiscussionPanel ref="discussionPanelRef" />
       </div>
 
       <!-- 底部收起按钮 -->
-      <div class="collapse-trigger" @click="toggleCollapse" title="收起面板">
+      <div
+        class="collapse-trigger"
+        title="收起面板"
+        @click="toggleCollapse"
+      >
         <el-icon :size="18">
           <ArrowRight />
         </el-icon>
@@ -79,7 +138,9 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { DocumentChecked, ChatLineRound, ScaleToOriginal, ArrowLeft, ArrowRight, Close } from '@element-plus/icons-vue'
+import {
+  DocumentChecked, ChatLineRound, ScaleToOriginal, ArrowLeft, ArrowRight, Close
+} from '@element-plus/icons-vue'
 import AICard from '../chat/AICard.vue'
 import DiscussionPanel from '../chat/DiscussionPanel.vue'
 import ComparisonPanel from '../chat/ComparisonPanel.vue'
@@ -150,7 +211,7 @@ const cardConfig = computed(() => ({
   id: summaryProviderId.value,
   providerId: summaryProviderId.value,
   position: { x: 0, y: 0 },
-  size: { width: '100%', height: '100%' },
+  size: { width: 800, height: 800 },
   isVisible: true,
   isHidden: false,
   isMinimized: false,
@@ -195,7 +256,9 @@ const showComparison = () => {
   isCollapsed.value = false
 }
 
-defineExpose({ showDiscussion, showSummary, showComparison, activeTab })
+defineExpose({
+  showDiscussion, showSummary, showComparison, activeTab
+})
 </script>
 
 <style scoped>

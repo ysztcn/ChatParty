@@ -1,17 +1,25 @@
 <template>
   <div class="agent-selector">
-    <el-dropdown trigger="click" @command="handleSelectAgent">
+    <el-dropdown
+      trigger="click"
+      @command="handleSelectAgent"
+    >
       <el-button
         :type="agentStore.hasActiveAgent ? 'warning' : 'default'"
         size="small"
         class="agent-btn"
       >
-        <el-icon class="agent-icon"><MagicStick /></el-icon>
+        <el-icon class="agent-icon">
+          <MagicStick />
+        </el-icon>
         <span class="agent-label">{{ activeAgentName }}</span>
       </el-button>
       <template #dropdown>
         <el-dropdown-menu class="agent-dropdown-menu">
-          <el-dropdown-item command="" class="agent-item">
+          <el-dropdown-item
+            command=""
+            class="agent-item"
+          >
             <el-icon><Close /></el-icon>
             <span>无智能体</span>
           </el-dropdown-item>
@@ -41,16 +49,14 @@ import { useAgentStore } from '../../stores/agent'
 
 const agentStore = useAgentStore()
 
-const activeAgentName = computed(() => {
-  return agentStore.activeAgent?.name || '智能体'
-})
+const activeAgentName = computed(() => agentStore.activeAgent?.name || '智能体')
 
 const handleSelectAgent = (agentId: string) => {
   if (!agentId) {
     agentStore.setActiveAgent(null)
     return
   }
-  const agent = agentStore.agents.find(a => a.id === agentId)
+  const agent = agentStore.agents.find((a) => a.id === agentId)
   if (agent) {
     agentStore.setActiveAgent(agent)
   }

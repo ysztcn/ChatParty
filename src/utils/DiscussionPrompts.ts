@@ -64,7 +64,7 @@ export const ROUND_ROBIN_DISCUSSION_TEMPLATE = `你正在参与一个AI圆桌讨
 /**
  * 第一轮发言模板 - 第一个模型直接回答问题
  */
-export const FIRST_SPEAKER_TEMPLATE = `{originalQuery}`
+export const FIRST_SPEAKER_TEMPLATE = '{originalQuery}'
 
 /**
  * 生成讨论提示词
@@ -87,7 +87,7 @@ export function generateDiscussionPrompt(
       : SEQUENTIAL_DISCUSSION_TEMPLATE
 
   const previousDiscussion = previousUtterances
-    .map((u, i) => `**${u.providerName}**: ${u.content}`)
+    .map((u, _i) => `**${u.providerName}**: ${u.content}`)
     .join('\n\n---\n\n')
 
   return template
@@ -100,8 +100,14 @@ export function generateDiscussionPrompt(
  */
 export function getDiscussionTemplates() {
   return [
-    { id: 'sequential', name: '顺序讨论', template: SEQUENTIAL_DISCUSSION_TEMPLATE, description: '模型依次基于前一个模型的回答继续讨论' },
-    { id: 'debate', name: '辩论模式', template: DEBATE_DISCUSSION_TEMPLATE, description: '模型间进行正反方辩论' },
-    { id: 'round-robin', name: '圆桌讨论', template: ROUND_ROBIN_DISCUSSION_TEMPLATE, description: '平等参与，各抒己见' }
+    {
+      id: 'sequential', name: '顺序讨论', template: SEQUENTIAL_DISCUSSION_TEMPLATE, description: '模型依次基于前一个模型的回答继续讨论'
+    },
+    {
+      id: 'debate', name: '辩论模式', template: DEBATE_DISCUSSION_TEMPLATE, description: '模型间进行正反方辩论'
+    },
+    {
+      id: 'round-robin', name: '圆桌讨论', template: ROUND_ROBIN_DISCUSSION_TEMPLATE, description: '平等参与，各抒己见'
+    }
   ]
 }

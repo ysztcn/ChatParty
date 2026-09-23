@@ -1,7 +1,7 @@
 /**
  * AI总结提示词模板工具
  *
- * @author huquanzhi
+ * @author 月上中天
  * @since 2026-03-24
  * @version 1.0
  */

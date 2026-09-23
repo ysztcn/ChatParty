@@ -44,14 +44,6 @@ export interface Message {
 /**
  * AI提供商接口
  */
-export interface CustomProviderConfig {
-  loginCheckScript: string
-  sendMessageScript: string
-  newChatScript: string
-  statusMonitorScript: string
-  fileUploadScript: string
-}
-
 export interface AIProvider {
   id: string
   name: string
@@ -65,8 +57,6 @@ export interface AIProvider {
   lastError?: string
   retryCount?: number
   lastActiveTime?: Date
-  isCustom?: boolean
-  customConfig?: CustomProviderConfig
 }
 
 /**
@@ -169,114 +159,11 @@ export interface UserPreferences {
   soundEnabled: boolean
 }
 
-/**
- * 插件配置接口
- */
-export interface PluginConfig {
-  id: string
-  name: string
-  version: string
-  enabled: boolean
-  settings: Record<string, any>
-  permissions: string[]
-  manifestUrl?: string
-}
-
-/**
- * 插件设置接口
- */
-export interface PluginSettings {
-  plugins: PluginConfig[]
-  globalSettings: Record<string, any>
-  autoUpdate: boolean
-}
-
-/**
- * WebView实例接口
- */
-export interface WebViewInstance {
-  id: string
-  providerId: string
-  url: string
-  isReady: boolean
-  isLoading: boolean
-  canGoBack: boolean
-  canGoForward: boolean
-  title: string
-  favicon?: string
-}
-
-/**
- * 应用状态接口
- */
-export interface AppState {
-  providers: AIProvider[]
-  currentMessage: string
-  conversations: Record<string, Message[]>
-  layoutConfig: LayoutConfig
-  userPreferences: UserPreferences
-  pluginSettings: PluginSettings
-  isInitialized: boolean
-  lastSaveTime?: Date
-}
-
-/**
- * 内存使用情况接口
- */
-export interface MemoryUsage {
-  used: number
-  total: number
-  percentage: number
-  timestamp: Date
-}
-
-/**
- * CPU使用情况接口
- */
-export interface CPUUsage {
-  percentage: number
-  timestamp: Date
-}
-
-/**
- * 性能指标接口
- */
-export interface PerformanceMetrics {
-  startupTime: number
-  messageSendLatency: number
-  webviewLoadTime: Record<string, number>
-  memoryUsage: MemoryUsage
-  cpuUsage: CPUUsage
-}
-
-/**
- * 工具应用接口
- */
-export interface ToolApp {
-  id: string
-  name: string
-  url: string
-  icon: string
-  description: string
-  category: string
-  isEnabled: boolean
-  webviewId: string
-  lastAccessTime: Date
-  customStyles?: Record<string, string>
-  proxyConfig?: {
-    enabled: boolean
-    host: string
-    port: number
-    protocol: 'http' | 'https' | 'socks5'
-  }
-}
-
 // 导出其他类型模块
 export * from './errors'
 export * from './events'
 export * from './ipc'
 export * from './summary'
-export * from './scriptConfig'
 export * from './agent'
 export * from './review'
 export * from './discussion'

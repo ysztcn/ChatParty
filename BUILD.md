@@ -5,57 +5,27 @@
 ### 1. 开发环境
 
 ```bash
-# 开发模式（默认启用工具集）
+# 开发模式
 npm run dev
 
-# 生产模式（默认启用工具集）
+# 生产模式
 npm run prod
 ```
 
 ### 2. 生产构建
 
-#### 方式一：使用环境变量文件（推荐）
-
 ```bash
-# 默认构建（不包含工具集）
-# .env.production 中 VITE_ENABLE_TOOLSET=false
 npm run build:prod
-
-# 自定义构建
-# 可以修改 .env.production 中的 VITE_ENABLE_TOOLSET 值
-npm run build:custom
-```
-
-#### 方式二：使用命令行参数
-
-```bash
-# 构建包含工具集的版本
-npm run build:with-toolset
-
-# 构建不包含工具集的版本
-npm run build:without-toolset
-```
-
-#### 方式三：手动设置环境变量
-
-```bash
-# Windows (PowerShell)
-$env:ENABLE_TOOLSET="true"
-npm run build:custom
-
-# Windows (CMD)
-set ENABLE_TOOLSET=true
-npm run build:custom
-
-# Linux/Mac
-ENABLE_TOOLSET=true npm run build:custom
 ```
 
 ### 3. 平台特定构建
 
 ```bash
-# Windows
+# Windows（NSIS 安装包 + 便携版 exe）
 npm run build:win
+
+# Windows 仅便携版（绿色免安装）
+npm run build:win:portable
 
 # macOS
 npm run build:mac
@@ -70,28 +40,9 @@ npm run build:mac:x64
 npm run build:mac:universal
 ```
 
-## 环境变量说明
-
-### VITE_ENABLE_TOOLSET
-
-控制是否启用工具集功能。
-
-- `true`: 启用工具集（菜单和路由都会显示）
-- `false`: 禁用工具集（菜单和路由都会隐藏）
-
-**位置**：
-- `.env`: 开发环境配置
-- `.env.production`: 生产环境配置
-
 ## 构建错误解决方案
 
-### 错误1: file source doesn't exist
-
-**原因**: `extraResources` 配置中引用的 node_modules 文件不存在
-
-**解决方案**: 已在 `package.json` 中移除 `extraResources` 配置，这些文件会被打包到 asar 中。
-
-### 错误2: Cannot create symbolic link - 客户端没有所需的特权
+### 错误: Cannot create symbolic link - 客户端没有所需的特权
 
 **原因**: Windows 创建符号链接需要管理员权限
 
@@ -117,10 +68,15 @@ npm run build:mac:universal
 
 ## 构建输出
 
-构建完成后，安装包位于 `dist/` 目录：
+构建命令会在打包前自动删除 `dist/` 与 `dist-electron/`（不清理 Electron 系统缓存）。深度清理请用 `npm run clean`。
 
-- Windows: `dist/ChatParty Setup 1.0.1.exe`
-- macOS: `dist/ChatParty-1.0.1.dmg`
+构建完成后，产物位于 `dist/` 目录：
+
+- Windows 安装包: `dist/ChatParty Setup <版本>.exe`
+- Windows 绿色版: `dist/ChatParty <版本>.exe`（portable，免安装）
+- macOS: `dist/ChatParty-<版本>.dmg`
+
+版本号由 `scripts/bump-version.js` 在构建时根据 `package.json` 自动递增。
 
 ## 注意事项
 
@@ -135,18 +91,15 @@ npm run build:mac:universal
 # 1. 安装依赖
 npm install
 
-# 2. 构建不含工具集的版本（推荐）
+# 2. 构建
 npm run build:prod
-
-# 或构建包含工具集的版本
-npm run build:with-toolset
 ```
 
 ## 高级配置
 
 ### 自定义构建配置
 
-编辑 `electron-builder.config.js` 或 `package.json` 中的 `build` 字段：
+编辑 `package.json` 中的 `build` 字段：
 
 ```json
 {
@@ -157,14 +110,4 @@ npm run build:with-toolset
     "asar": true
   }
 }
-```
-
-### 环境变量优先级
-
-命令行参数 > .env.production > .env > 默认值
-
-示例：
-```bash
-# 会使用命令行的 true，忽略 .env 文件
-ENABLE_TOOLSET=true npm run build:custom
 ```

@@ -20,10 +20,15 @@
 - **讨论面板**：侧边栏实时展示讨论过程和结论
 - **内容操作**：支持复制讨论内容、跳转到对应模型对话
 
+![多模型讨论](./images/多模型讨论.png)
+![讨论](./images/讨论.png)
+
 ### 3. 多模型回答对比
 - **卡片视图**：以卡片形式并排展示各模型的回答
 - **表格视图**：以表格形式对比各模型回答的关键差异
 - **差异视图**：高亮展示各模型回答之间的差异点
+
+![对比](./images/对比.png)
 
 ### 4. AI回答总结
 - **智能总结**：选择特定 AI 模型对其他模型的回答进行总结
@@ -44,18 +49,12 @@
 - **最大化/最小化**：单个卡片支持全屏和最小化操作
 - **多列布局**：可配置 1-6 列布局，适应不同屏幕尺寸
 
-### 8. 工具集
-- 通过环境变量 `VITE_ENABLE_TOOLSET` 控制是否构建工具集菜单页面
-- 内置 ima、下载狗、smallpdf、MinerU、ai-bot、今日热榜、coze、modelscope 等工具
-
-### 9. 个性化配置
+### 8. 个性化配置
 - **主题切换**：支持浅色、深色和跟随系统主题
-- **自定义脚本**：为每个 AI 提供商自定义 JavaScript 脚本（消息提取、登录检查、发送消息等）
 - **代理配置**：为每个 AI 模型单独配置网络代理
+- **Prompt 管理**：支持自定义 Prompt 的创建、编辑、分类和快捷应用
 
 ![代理配置](./images/代理.png)
-![代理配置](./images/多模型讨论.png)
-- **Prompt 管理**：支持自定义 Prompt 的创建、编辑、分类和快捷应用
 
 ## 支持的AI模型
 
@@ -80,7 +79,7 @@
 
 ```bash
 # 克隆项目
-git clone https://github.com/chenjinyong66/ChatParty.git
+git clone https://github.com/ysztcn/ChatParty.git
 
 # 安装依赖
 npm install
@@ -94,17 +93,21 @@ npm run prod
 # 构建应用
 npm run build
 
-# 构建 Windows 版本
+# 构建 Windows 安装版 + 绿色版
 npm run build:win
+
+# 仅构建 Windows 绿色版（免安装单文件）
+npm run build:win:portable
 
 # 构建 macOS 版本
 npm run build:mac
 ```
 
+绿色版输出为 `dist/ChatParty <版本>.exe`，双击即可运行，无需安装。
 
 macOS 安装后需执行：
 ```sh
-sudo xattr -d com.apple.quarantine /Applications/ChatAllAI.app
+sudo xattr -d com.apple.quarantine /Applications/ChatParty.app
 ```
 
 ### 首次使用
@@ -148,8 +151,6 @@ sudo xattr -d com.apple.quarantine /Applications/ChatAllAI.app
 
 ### 核心模块
 
-![整体架构](./images/整体架构.png)
-
 ```
 src/
 ├── components/
@@ -163,24 +164,24 @@ src/
 │   │   └── ComparisonPanel.vue   # 多模型对比面板
 │   ├── layout/         # 布局组件
 │   ├── summary/        # 总结侧边栏
-│   ├── webview/        # WebView 组件
-│   └── toolset/        # 工具集组件
+│   └── webview/        # WebView 组件
 ├── services/
 │   ├── MessageDispatcher.ts      # 消息分发器
 │   ├── DiscussionService.ts      # 多模型讨论服务
+│   ├── ReviewService.ts          # 回答评审服务
 │   └── SummaryService.ts         # 总结服务
 ├── stores/
 │   ├── chat.ts         # 聊天状态（含 AI 提供商配置）
 │   ├── agent.ts        # 智能体状态
 │   ├── discussion.ts   # 讨论状态
-│   ├── summary.ts      # 总结状态
-│   ├── scriptConfig.ts # 自定义脚本配置
-│   └── toolset.ts      # 工具集配置
+│   ├── review.ts       # 评审状态
+│   └── summary.ts      # 总结状态
 ├── utils/
 │   ├── GetLLMLastMessage.ts      # AI 回答提取脚本
 │   ├── MessageScripts.ts         # 消息发送脚本
 │   ├── LoginCheckScripts.ts      # 登录检查脚本
 │   ├── NewChatScripts.ts         # 新建对话脚本
+│   ├── ReviewPrompts.ts          # 评审提示词
 │   └── StatusMonitorScripts.ts   # 状态监控脚本
 └── types/              # 类型定义
 
@@ -188,7 +189,9 @@ electron/
 ├── main.ts             # 主进程入口
 ├── preload.ts          # 预加载脚本
 └── managers/
-    └── IPCHandler.ts   # IPC 通信处理
+    ├── IPCHandler.ts   # IPC 通信处理
+    ├── SessionManager.ts # 会话与登录状态管理
+    └── WindowManager.ts  # 窗口管理
 ```
 
 ### 关键设计
@@ -217,7 +220,6 @@ GetLLMLastMessage.ts 为每个 AI 提供商提供定制的 DOM 提取脚本，�
 6. **实现状态监控脚本**：在 `src/utils/StatusMonitorScripts.ts` 中添加
 7. **添加图标资源**：在 `public/icons/` 目录下添加图标文件
 
-
 ## 常见问题
 
 ### 登录问题
@@ -227,11 +229,10 @@ GetLLMLastMessage.ts 为每个 AI 提供商提供定制的 DOM 提取脚本，�
 - 消息发送后某个 AI 没有响应：检查该 AI 网站是否正常访问，WebView 是否加载完成
 
 ### 对比/总结无法收集回答
-- 某个模型的回答无法被提取：可能是网站 DOM 结构更新导致选择器失效，可在设置中自定义提取脚本
+- 某个模型的回答无法被提取：可能是网站 DOM 结构更新导致选择器失效，需更新对应提取脚本
 
 ### 性能问题
 - 同时启用多个 AI 模型导致卡顿：减少同时启用的模型数量，建议 8GB 以上内存
-
 
 ## 许可证
 MIT License

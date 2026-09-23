@@ -47,7 +47,7 @@ import {
   computed, ref, onMounted, onUnmounted
 } from 'vue'
 import {
-  Loading, Monitor, Connection, Disconnect
+  Loading, Monitor
 } from '@element-plus/icons-vue'
 import { useAppStore, useChatStore } from '../../stores'
 
@@ -68,8 +68,8 @@ const hasSendingMessages = computed(() => Object.values(chatStore.sendingStatus)
  * 更新内存使用情况
  */
 const updateMemoryUsage = (): void => {
-  if ('memory' in performance) {
-    const { memory } = performance as any
+  const { memory } = (performance as Performance & { memory?: { usedJSHeapSize: number } })
+  if (memory) {
     memoryUsage.value = Math.round(memory.usedJSHeapSize / 1024 / 1024)
   }
 }

@@ -9,7 +9,9 @@
               <ChatDotRound />
             </el-icon>
           </div>
-          <div class="party-hat">🎉</div>
+          <div class="party-hat">
+            🎉
+          </div>
         </div>
         ChatParty
       </h1>
@@ -22,27 +24,19 @@
       <!-- 菜单区域 - 不可拖动 -->
       <div class="menu-container">
         <el-menu
-            :default-active="activeRoute"
-            mode="horizontal"
-            :ellipsis="false"
-            @select="handleMenuSelect"
+          :default-active="activeRoute"
+          mode="horizontal"
+          :ellipsis="false"
+          @select="handleMenuSelect"
         >
           <el-menu-item index="/chat">
             <el-icon><ChatDotRound /></el-icon>
             <span>对话</span>
           </el-menu-item>
-          <el-menu-item v-if="enableToolset" index="/toolset">
-            <el-icon><Tools /></el-icon>
-            <span>工具集</span>
-          </el-menu-item>
           <el-menu-item index="/settings">
             <el-icon><Setting /></el-icon>
             <span>设置</span>
           </el-menu-item>
-<!--          <el-menu-item index="/knowledge">
-            <el-icon><Document /></el-icon>
-            <span>知识库</span>
-          </el-menu-item>-->
         </el-menu>
       </div>
 
@@ -54,13 +48,13 @@
       <!-- 登录状态指示器 -->
       <div class="login-status">
         <el-badge
-            :value="loggedInCount"
-            :max="99"
-            class="status-badge"
+          :value="loggedInCount"
+          :max="99"
+          class="status-badge"
         >
           <el-icon
-              class="status-icon"
-              :class="{ online: loggedInCount > 0 }"
+            class="status-icon"
+            :class="{ online: loggedInCount > 0 }"
           >
             <Connection />
           </el-icon>
@@ -70,32 +64,32 @@
 
       <!-- 主题切换 -->
       <el-button
-          :icon="isDarkMode ? Sunny : Moon"
-          circle
-          class="theme-toggle"
-          @click="toggleTheme"
+        :icon="isDarkMode ? Sunny : Moon"
+        circle
+        class="theme-toggle"
+        @click="toggleTheme"
       />
 
       <!-- 窗口控制按钮 -->
       <div class="window-controls">
         <el-button
-            :icon="Minus"
-            circle
-            size="small"
-            @click="minimizeWindow"
+          :icon="Minus"
+          circle
+          size="small"
+          @click="minimizeWindow"
         />
         <el-button
-            :icon="FullScreen"
-            circle
-            size="small"
-            @click="toggleFullScreen"
+          :icon="FullScreen"
+          circle
+          size="small"
+          @click="toggleFullScreen"
         />
         <el-button
-            :icon="Close"
-            circle
-            size="small"
-            type="danger"
-            @click="closeWindow"
+          :icon="Close"
+          circle
+          size="small"
+          type="danger"
+          @click="closeWindow"
         />
       </div>
     </div>
@@ -107,10 +101,7 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   ChatDotRound,
-  House,
   Setting,
-  Document,
-  Tools,
   Connection,
   Sunny,
   Moon,
@@ -118,19 +109,19 @@ import {
   Close,
   FullScreen
 } from '@element-plus/icons-vue'
-import { useAppStore, useChatStore } from '../../stores'
+import { useAppStore, useChatStore, useLayoutStore } from '../../stores'
 
 const route = useRoute()
 const router = useRouter()
 const appStore = useAppStore()
 const chatStore = useChatStore()
+const layoutStore = useLayoutStore()
 
 // 计算属性
 const activeRoute = computed(() => route.path)
 const isDarkMode = computed(() => appStore.isDarkMode)
 const loggedInCount = computed(() => chatStore.loggedInCount)
 const totalProviders = computed(() => chatStore.totalProviders)
-const enableToolset = computed(() => import.meta.env.VITE_ENABLE_TOOLSET === 'true')
 
 /**
  * 处理菜单选择
@@ -168,10 +159,14 @@ const closeWindow = (): void => {
 
 /**
  * 切换全屏状态
+ * 切换后主动拉取显示布局，确保设置页等界面立即限制到主屏
  */
-const toggleFullScreen = (): void => {
-  if (window.electronAPI) {
-    window.electronAPI.toggleFullScreen()
+const toggleFullScreen = async(): Promise<void> => {
+  if (!window.electronAPI) return
+  await window.electronAPI.toggleFullScreen()
+  if (window.electronAPI.getDisplayLayout) {
+    const layout = await window.electronAPI.getDisplayLayout()
+    layoutStore.updateDisplayLayout(layout)
   }
 }
 </script>

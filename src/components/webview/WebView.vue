@@ -262,9 +262,10 @@ const bindWebViewEvents = (webview: Electron.WebviewTag): void => {
 
   // 新窗口请求
   webview.addEventListener('new-window', (event) => {
+    const { url } = event as Event & { url: string }
     // 在默认浏览器中打开新窗口
     if (window.electronAPI) {
-      window.electronAPI.openExternal(event.url)
+      window.electronAPI.openExternal(url)
     }
   })
 
@@ -393,7 +394,7 @@ const executeScript = async(script: string): Promise<any> => {
     throw new Error('WebView not ready')
   }
 
-  return await webviewElement.value.executeJavaScript(script)
+  return webviewElement.value.executeJavaScript(script)
 }
 
 /**
@@ -450,7 +451,9 @@ const create = async(): Promise<void> => {
     await loadSession()
 
     // 等待一小段时间确保DOM已经渲染
-    await new Promise((resolve) => setTimeout(resolve, 100))
+    await new Promise((resolve) => {
+      setTimeout(resolve, 100)
+    })
 
     createWebView()
   } else {

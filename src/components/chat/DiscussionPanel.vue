@@ -2,32 +2,64 @@
   <div class="discussion-panel">
     <!-- ====== 配置区域 ====== -->
     <div
-      v-if="!discussionStore.isRunning && (!discussionStore.session || discussionStore.session.status === 'idle' || discussionStore.session.status === 'completed' || discussionStore.session.status === 'paused' || discussionStore.session.status === 'error')"
-      class="discussion-config">
+      v-if="showConfigPanel"
+      class="discussion-config"
+    >
       <div class="config-grid">
         <div class="config-item">
-          <div class="config-item-label">讨论模式</div>
-          <el-radio-group v-model="localConfig.mode" size="small">
-            <el-radio-button value="sequential">顺序讨论</el-radio-button>
-            <el-radio-button value="debate">辩论</el-radio-button>
-            <el-radio-button value="round-robin">圆桌</el-radio-button>
+          <div class="config-item-label">
+            讨论模式
+          </div>
+          <el-radio-group
+            v-model="localConfig.mode"
+            size="small"
+          >
+            <el-radio-button value="sequential">
+              顺序讨论
+            </el-radio-button>
+            <el-radio-button value="debate">
+              辩论
+            </el-radio-button>
+            <el-radio-button value="round-robin">
+              圆桌
+            </el-radio-button>
           </el-radio-group>
         </div>
         <div class="config-item">
-          <div class="config-item-label">轮次</div>
-          <el-input-number v-model="localConfig.maxRounds" :min="1" :max="5" size="small" />
+          <div class="config-item-label">
+            轮次
+          </div>
+          <el-input-number
+            v-model="localConfig.maxRounds"
+            :min="1"
+            :max="5"
+            size="small"
+          />
         </div>
       </div>
 
       <div class="config-item full-width">
-        <div class="config-item-label">参与模型 <span class="sub-label">（点击选择，顺序即发言顺序）</span></div>
+        <div class="config-item-label">
+          参与模型 <span class="sub-label">（点击选择，顺序即发言顺序）</span>
+        </div>
         <div class="participant-chips">
-          <div v-for="provider in loggedInProviders" :key="provider.id" class="participant-chip"
+          <div
+            v-for="provider in loggedInProviders"
+            :key="provider.id"
+            class="participant-chip"
             :class="{ active: localConfig.participantIds.includes(provider.id) }"
-            @click="toggleParticipant(provider.id, !localConfig.participantIds.includes(provider.id))">
-            <img :src="provider.icon" class="chip-icon" @error="handleIconError">
+            @click="toggleParticipant(provider.id, !localConfig.participantIds.includes(provider.id))"
+          >
+            <img
+              :src="provider.icon"
+              class="chip-icon"
+              @error="handleIconError"
+            >
             <span class="chip-name">{{ provider.name }}</span>
-            <span v-if="localConfig.participantIds.includes(provider.id)" class="chip-order">
+            <span
+              v-if="localConfig.participantIds.includes(provider.id)"
+              class="chip-order"
+            >
               {{ localConfig.participantIds.indexOf(provider.id) + 1 }}
             </span>
           </div>
@@ -35,76 +67,144 @@
       </div>
 
       <div class="config-item full-width">
-        <div class="config-item-label">讨论话题</div>
-        <el-input v-model="discussionTopic" type="textarea" :rows="2" placeholder="输入要讨论的问题或话题..." resize="none" />
+        <div class="config-item-label">
+          讨论话题
+        </div>
+        <el-input
+          v-model="discussionTopic"
+          type="textarea"
+          :rows="2"
+          placeholder="输入要讨论的问题或话题..."
+          resize="none"
+        />
       </div>
 
       <div class="start-action">
-        <el-button type="primary" size="default"
-          :disabled="localConfig.participantIds.length < 2 || !discussionTopic.trim()" @click="handleStartDiscussion">
+        <el-button
+          type="primary"
+          size="default"
+          :disabled="localConfig.participantIds.length < 2 || !discussionTopic.trim()"
+          @click="handleStartDiscussion"
+        >
           开始讨论
         </el-button>
-        <span v-if="localConfig.participantIds.length < 2" class="hint-text">
+        <span
+          v-if="localConfig.participantIds.length < 2"
+          class="hint-text"
+        >
           至少选择2个模型
         </span>
       </div>
     </div>
 
     <!-- ====== 进行中 - 进度条 ====== -->
-    <div v-if="discussionStore.isRunning" class="discussion-running">
+    <div
+      v-if="discussionStore.isRunning"
+      class="discussion-running"
+    >
       <div class="running-header">
         <div class="running-indicator">
           <span class="pulse-dot" />
           讨论进行中
         </div>
-        <el-button type="danger" size="small" plain @click="handleStop">
+        <el-button
+          type="danger"
+          size="small"
+          plain
+          @click="handleStop"
+        >
           停止
         </el-button>
       </div>
-      <el-progress :percentage="discussionProgress" :stroke-width="6" :show-text="false" striped striped-flow />
-      <div class="running-status">{{ discussionStore.progress.message }}</div>
+      <el-progress
+        :percentage="discussionProgress"
+        :stroke-width="6"
+        :show-text="false"
+        striped
+        striped-flow
+      />
+      <div class="running-status">
+        {{ discussionStore.progress.message }}
+      </div>
     </div>
 
     <!-- ====== 讨论记录 ====== -->
-    <div v-if="discussionStore.session && discussionStore.session.rounds.length > 0" class="discussion-record">
+    <div
+      v-if="discussionStore.session && discussionStore.session.rounds.length > 0"
+      class="discussion-record"
+    >
       <!-- 话题 -->
       <div class="topic-banner">
         <span class="topic-icon">💡</span>
         <span class="topic-text">{{ discussionStore.session.originalQuery }}</span>
-        <el-tag v-if="discussionStore.session.status === 'completed'" type="success" size="small" round>
+        <el-tag
+          v-if="discussionStore.session.status === 'completed'"
+          type="success"
+          size="small"
+          round
+        >
           已完成
         </el-tag>
-        <el-tag v-else-if="discussionStore.session.status === 'paused'" type="warning" size="small" round>
+        <el-tag
+          v-else-if="discussionStore.session.status === 'paused'"
+          type="warning"
+          size="small"
+          round
+        >
           已暂停
         </el-tag>
       </div>
 
       <!-- 对话气泡列表 -->
       <div class="chat-bubbles">
-        <template v-for="(utterance, idx) in discussionStore.allUtterances" :key="idx">
+        <template
+          v-for="(utterance, idx) in discussionStore.allUtterances"
+          :key="idx"
+        >
           <!-- 轮次分隔 -->
-          <div v-if="isFirstInRound(utterance)" class="round-divider">
+          <div
+            v-if="isFirstInRound(utterance)"
+            class="round-divider"
+          >
             <span class="divider-line" />
             <span class="divider-text">第 {{ getRoundNumber(utterance) }} 轮</span>
             <span class="divider-line" />
           </div>
 
           <!-- 气泡 -->
-          <div class="bubble-row" :class="{ 'bubble-error': !utterance.success }">
+          <div
+            class="bubble-row"
+            :class="{ 'bubble-error': !utterance.success }"
+          >
             <div class="bubble-avatar">
-              <img :src="getProviderIcon(utterance.providerId)" class="avatar-img" @error="handleIconError">
+              <img
+                :src="getProviderIcon(utterance.providerId)"
+                class="avatar-img"
+                @error="handleIconError"
+              >
               <span class="avatar-name">{{ utterance.providerName }}</span>
             </div>
             <div class="bubble-content">
-              <div class="content-body" v-html="renderMarkdown(utterance.content)" />
+              <div
+                class="content-body"
+                v-html="renderMarkdown(utterance.content)"
+              />
               <div class="bubble-actions">
-                <el-button size="small" text @click="handleCopyContent(utterance.content)">
+                <el-button
+                  size="small"
+                  text
+                  @click="handleCopyContent(utterance.content)"
+                >
                   <el-icon :size="12">
                     <DocumentCopy />
                   </el-icon>
                   复制
                 </el-button>
-                <el-button size="small" text @click="handleGoToModel(utterance.providerId)">
+                <el-button
+                  size="small"
+                  text
+                  @click="handleGoToModel(utterance.providerId)"
+                >
                   <el-icon :size="12">
                     <View />
                   </el-icon>
@@ -117,12 +217,21 @@
       </div>
 
       <!-- 底部操作 -->
-      <div v-if="discussionStore.session.status === 'completed' || discussionStore.session.status === 'paused'"
-        class="record-actions">
-        <el-button size="small" @click="handleNewDiscussion">
+      <div
+        v-if="discussionStore.session.status === 'completed' || discussionStore.session.status === 'paused'"
+        class="record-actions"
+      >
+        <el-button
+          size="small"
+          @click="handleNewDiscussion"
+        >
           新讨论
         </el-button>
-        <el-button type="primary" size="small" @click="handleExportDiscussion">
+        <el-button
+          type="primary"
+          size="small"
+          @click="handleExportDiscussion"
+        >
           导出记录
         </el-button>
       </div>
@@ -151,15 +260,13 @@ const localConfig = reactive({
   participantIds: [] as string[]
 })
 
-const loggedInProviders = computed(() =>
-  chatStore.providers.filter(p => p.isLoggedIn)
-)
+const loggedInProviders = computed(() => chatStore.providers.filter((p) => p.isLoggedIn))
 
 const discussionProgress = computed(() => {
   if (!discussionStore.session) return 0
   const { currentRound, currentSpeakerIndex } = discussionStore.session
   const totalParticipants = discussionStore.session.config.participantIds.length
-  const maxRounds = discussionStore.session.config.maxRounds
+  const { maxRounds } = discussionStore.session.config
   if (totalParticipants === 0) return 0
   const total = maxRounds * totalParticipants
   const current = (currentRound - 1) * totalParticipants + currentSpeakerIndex + 1
@@ -199,13 +306,11 @@ const toggleParticipant = (providerId: string, checked: boolean) => {
       localConfig.participantIds.push(providerId)
     }
   } else {
-    localConfig.participantIds = localConfig.participantIds.filter(id => id !== providerId)
+    localConfig.participantIds = localConfig.participantIds.filter((id) => id !== providerId)
   }
 }
 
-const getProviderIcon = (id: string) => {
-  return chatStore.providers.find(p => p.id === id)?.icon || ''
-}
+const getProviderIcon = (id: string) => chatStore.providers.find((p) => p.id === id)?.icon || ''
 
 const handleIconError = (e: Event) => {
   const img = e.target as HTMLImageElement
@@ -213,7 +318,7 @@ const handleIconError = (e: Event) => {
 }
 
 /** 复制内容到剪贴板 */
-const handleCopyContent = async (content: string) => {
+const handleCopyContent = async(content: string) => {
   try {
     await navigator.clipboard.writeText(content)
     ElMessage.success('已复制到剪贴板')
@@ -254,7 +359,7 @@ const handleStartDiscussion = () => {
   }
 
   const providers = localConfig.participantIds
-    .map(id => chatStore.providers.find(p => p.id === id))
+    .map((id) => chatStore.providers.find((p) => p.id === id))
     .filter(Boolean) as any[]
 
   discussionService.startDiscussion(
@@ -273,13 +378,34 @@ const handleNewDiscussion = () => {
   discussionStore.clearSession()
 }
 
+const showConfigPanel = computed(() => {
+  if (discussionStore.isRunning) return false
+  const status = discussionStore.session?.status
+  return (
+    !discussionStore.session
+    || status === 'idle'
+    || status === 'completed'
+    || status === 'paused'
+    || status === 'error'
+  )
+})
+
 const handleExportDiscussion = () => {
   if (!discussionStore.session) return
   const content = discussionStore.allUtterances
-    .map(u => `## ${u.providerName} (第${u.order}位发言)\n\n${u.content}`)
+    .map((u) => `## ${u.providerName} (第${u.order}位发言)\n\n${u.content}`)
     .join('\n\n---\n\n')
-  const header = `# 多模型讨论记录\n\n**问题**: ${discussionStore.session.originalQuery}\n**模式**: ${discussionStore.session.config.mode}\n**轮次**: ${discussionStore.session.config.maxRounds}\n\n---\n\n`
-  const blob = new Blob([header + content], { type: 'text/markdown' })
+  const headerLines = [
+    '# 多模型讨论记录',
+    '',
+    `**问题**: ${discussionStore.session.originalQuery}`,
+    `**模式**: ${discussionStore.session.config.mode}`,
+    `**轮次**: ${discussionStore.session.config.maxRounds}`,
+    '',
+    '---',
+    ''
+  ]
+  const blob = new Blob([`${headerLines.join('\n')}\n${content}`], { type: 'text/markdown' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url

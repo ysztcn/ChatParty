@@ -2,7 +2,7 @@
  * 登录状态检查脚本工具类
  * 提供不同AI网站的登录状态检查脚本
  *
- * @author huquanzhi
+ * @author 月上中天
  * @since 2024-12-19 14:30
  * @version 1.0
  */
@@ -12,33 +12,6 @@
  * @param providerId AI提供商ID
  * @returns 对应的JavaScript脚本字符串
  */
-import { useScriptConfigStore } from '../stores/scriptConfig'
-import { useChatStore } from '../stores'
-import type { ScriptType } from '../types'
-
-function resolveScript(
-  providerId: string,
-  scriptType: ScriptType,
-  defaultScript: string,
-  params?: Record<string, string>
-): string {
-  try {
-    const store = useScriptConfigStore()
-    const custom = store.getCustomScript(providerId, scriptType)
-    if (custom) {
-      let result = custom
-      if (params) {
-        Object.keys(params).forEach((key) => {
-          result = result.replace(new RegExp(`\\{${key}\\}`, 'g'), params[key])
-        })
-      }
-      return result
-    }
-  } catch {
-    // Store not available, use default
-  }
-  return defaultScript
-}
 
 export function getLoginCheckScript(providerId: string): string {
   const scripts: Record<string, string> = {
@@ -65,7 +38,10 @@ export function getLoginCheckScript(providerId: string): string {
     qwen: `
       // 检查通义千问的登录状态
       !Array.from(document.querySelectorAll('button'))
-        .some(btn => btn.textContent.trim() === '立即登录')
+        .some(btn => {
+          const text = (btn.textContent || '').trim();
+          return text === '登录' || text === '立即登录';
+        })
     `,
     copilot: `
       // 检查Copilot的登录状态
@@ -90,24 +66,10 @@ export function getLoginCheckScript(providerId: string): string {
     mimo: `
       !Array.from(document.querySelectorAll('[type="button"]'))
                    .some(btn => btn.textContent.trim() === '立即登录');
-    `,
-    minimax: `
-      !Array.from(document.querySelectorAll('button'))
-        .some(btn => btn.textContent.trim() === '登 录')
     `
   }
 
   const defaultScript = scripts[providerId] || 'false'
 
-  try {
-    const chatStore = useChatStore()
-    const provider = chatStore.getProvider(providerId)
-    if (provider?.isCustom && provider.customConfig?.loginCheckScript) {
-      return resolveScript(providerId, 'loginCheck', provider.customConfig.loginCheckScript)
-    }
-  } catch {
-    // Store not available
-  }
-
-  return resolveScript(providerId, 'loginCheck', defaultScript)
+  return defaultScript
 }

@@ -1,12 +1,12 @@
 /**
  * AI总结导出工具
  *
- * @author huquanzhi
+ * @author 月上中天
  * @since 2026-03-24
  * @version 1.0
  */
 
-import type { SummaryResult, ExportConfig, AIResponse } from '../types/summary'
+import type { SummaryResult, ExportConfig } from '../types/summary'
 
 /**
  * 生成时间戳字符串

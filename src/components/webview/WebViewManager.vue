@@ -22,8 +22,9 @@
 
 <script setup lang="ts">
 import {
-  ref, computed, onMounted, onUnmounted
+  ref, onMounted, onUnmounted
 } from 'vue'
+import type { ComponentPublicInstance } from 'vue'
 import { ElMessage } from 'element-plus'
 import WebView from './WebView.vue'
 import type { AIProvider, Message } from '../../types'
@@ -80,8 +81,8 @@ const RESTART_DELAY = 2000
 /**
  * 设置WebView引用
  */
-const setWebViewRef = (providerId: string, el: InstanceType<typeof WebView> | null): void => {
-  webViewRefs.value[providerId] = el
+const setWebViewRef = (providerId: string, el: Element | ComponentPublicInstance | null): void => {
+  webViewRefs.value[providerId] = el as InstanceType<typeof WebView> | null
 
   // 初始化状态
   if (!webViewStates.value[providerId]) {
@@ -234,7 +235,9 @@ const restartWebView = async(providerId: string): Promise<void> => {
     webViewRef.destroy()
 
     // 等待一段时间后重新创建
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    await new Promise((resolve) => {
+      setTimeout(resolve, 1000)
+    })
 
     // 重新加载
     const provider = props.providers.find((p) => p.id === providerId)

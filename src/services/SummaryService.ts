@@ -1,13 +1,13 @@
 /**
  * AI总结服务
  *
- * @author huquanzhi
+ * @author 月上中天
  * @since 2026-03-24
  * @version 1.0
  */
 
 import type { AIProvider } from '../types'
-import type { SummaryResult, AIResponse, SummaryOptions } from '../types/summary'
+import type { AIResponse, SummaryOptions } from '../types/summary'
 import { getSendMessageScript } from '../utils/GetLLMLastMessage'
 import { generateSummaryPrompt } from '../utils/SummaryPrompts'
 import { useSummaryStore } from '../stores/summary'
@@ -62,7 +62,7 @@ export class SummaryService {
     console.log(`开始收集 ${providers.length} 个AI的回答`)
 
     // 并发收集所有AI的回答
-    const collectPromises = providers.map(async(provider, index) => {
+    const collectPromises = providers.map(async(provider, _index) => {
       try {
         console.log(`正在收集 ${provider.name} 的回答...`)
         const content = await this.fetchResponseFromProvider(provider)
@@ -161,7 +161,9 @@ export class SummaryService {
         // 执行脚本获取回答
         const result = await Promise.race([
           window.electronAPI.executeScriptInWebView(provider.webviewId, script),
-          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('获取回答超时')), 10000))
+          new Promise<never>((_resolve, reject) => {
+            setTimeout(() => reject(new Error('获取回答超时')), 10000)
+          })
         ])
 
         if (typeof result === 'string') {
@@ -229,7 +231,11 @@ export class SummaryService {
    * @param summaryWebviewId 总结模型的WebView ID（可选，用于独立侧边栏）
    * @returns 发送结果
    */
-  async sendSummaryRequest(summaryProvider: AIProvider, prompt: string, summaryWebviewId?: string): Promise<SendMessageResult> {
+  async sendSummaryRequest(
+    summaryProvider: AIProvider,
+    prompt: string,
+    summaryWebviewId?: string
+  ): Promise<SendMessageResult> {
     console.log(`正在发送总结请求到 ${summaryProvider.name}...`)
 
     if (!window.electronAPI) {
@@ -393,7 +399,9 @@ export class SummaryService {
    * @returns Promise
    */
   private delay(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms))
+    return new Promise((resolve) => {
+      setTimeout(resolve, ms)
+    })
   }
 }
 

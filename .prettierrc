@@ -6,7 +6,7 @@
   "printWidth": 120,
   "bracketSpacing": true,
   "arrowParens": "avoid",
-  "endOfLine": "lf",
+  "endOfLine": "auto",
   "vueIndentScriptAndStyle": false,
   "htmlWhitespaceSensitivity": "ignore"
 }

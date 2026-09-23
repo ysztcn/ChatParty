@@ -20,7 +20,8 @@ interface ElectronAPI {
   refreshAllWebViews(): Promise<void>
   loadWebView(data: { webviewId: string; url: string }): Promise<void>
   openDevTools(webviewId: string): Promise<void>
-  setProxy(data: { webviewId: string; proxy: string }): Promise<void>
+  setProxy(data: { webviewId: string; proxyRules: string; enabled: boolean }): Promise<void>
+  getPreloadPath(preloadName: string): Promise<string>
 
   // 会话管理
   saveSession(data: { providerId: string }): Promise<{ success: boolean }>
@@ -40,9 +41,22 @@ interface ElectronAPI {
   }): Promise<{ success: boolean; providerId: string; error?: string }>
 
   // AI状态监控
-  startAIStatusMonitoring(data: { webviewId: string; providerId: string }): Promise<{ success: boolean; error?: string }>
+  startAIStatusMonitoring(data: {
+    webviewId: string
+    providerId: string
+  }): Promise<{ success: boolean; error?: string }>
   stopAIStatusMonitoring(data: { providerId: string }): Promise<{ success: boolean; error?: string }>
   onAIStatusChange(callback: (data: any) => void): () => void
+
+  // 显示布局
+  getDisplayLayout(): Promise<{
+    fullScreenState: 0 | 1 | 2
+    screenCount: number
+    primaryIndex: number
+    screens: Array<{ x: number; y: number; width: number; height: number }>
+  }>
+  onDisplayLayoutChanged(callback: (data: any) => void): () => void
+
   removeAllListeners(channel: string): void
 }
 

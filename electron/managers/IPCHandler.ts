@@ -4,11 +4,13 @@
  */
 
 import {
-  ipcMain, IpcMainEvent, IpcMainInvokeEvent, app, dialog, session, BrowserView, WebContentsView
+  ipcMain, IpcMainEvent, IpcMainInvokeEvent, app, dialog
 } from 'electron'
 import { EventEmitter } from 'events'
 import { join, basename, extname } from 'path'
-import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync, readdirSync } from 'fs'
+import {
+  existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync, readdirSync
+} from 'fs'
 import { WindowManager } from './WindowManager'
 import { SessionManager } from './SessionManager'
 import { getSendMessageScript } from '../../src/utils/MessageScripts'
@@ -16,9 +18,6 @@ import { getStatusMonitorScript } from '../../src/utils/StatusMonitorScripts'
 import { getFileUploadScript } from '../../src/utils/UploadScripts'
 import {
   IPCChannel,
-  IPCRequest,
-  IPCResponse,
-  IPCEventDataMap,
   MessageSendRequest,
   MessageSendResponse,
   WebViewCreateRequest,
@@ -39,10 +38,8 @@ import {
   AIStatusInfo,
   AIStatusChangeEvent,
   FileOpenDialogRequest,
-  FileOpenDialogResponse,
   FileReadRequest,
   FileReadResponse,
-  UploadFileData,
   FileUploadToWebViewRequest,
   FileUploadToWebViewResponse
 } from '../../src/types/ipc'
@@ -118,13 +115,14 @@ export class IPCHandler extends EventEmitter {
     ipcMain.handle('unmaximize-window', this.handleUnmaximizeWindow.bind(this))
     ipcMain.handle('is-maximized', this.handleIsMaximized.bind(this))
     ipcMain.handle('toggle-fullscreen', this.handleToggleFullScreen.bind(this))
+    ipcMain.handle(IPCChannel.DISPLAY_GET_LAYOUT, () => this.windowManager.getDisplayLayout())
 
     // WebView管理
-    ipcMain.handle('send-message-to-webview', (event, data) => this.handleSendMessageToWebView(data))
-    ipcMain.handle('refresh-webview', (event, webviewId) => this.handleRefreshWebView(webviewId))
+    ipcMain.handle('send-message-to-webview', (_event, data) => this.handleSendMessageToWebView(data))
+    ipcMain.handle('refresh-webview', (_event, webviewId) => this.handleRefreshWebView(webviewId))
     ipcMain.handle('refresh-all-webviews', () => this.handleRefreshAllWebViews())
-    ipcMain.handle('load-webview', (event, data) => this.handleLoadWebView(data))
-    ipcMain.handle('open-devtools', (event, webviewId) => this.handleOpenDevTools(webviewId))
+    ipcMain.handle('load-webview', (_event, data) => this.handleLoadWebView(data))
+    ipcMain.handle('open-devtools', (_event, webviewId) => this.handleOpenDevTools(webviewId))
 
     // 应用控制
     this.handleInvoke(IPCChannel.APP_READY, this.handleAppReady.bind(this))
@@ -172,7 +170,7 @@ export class IPCHandler extends EventEmitter {
     this.handleInvoke(IPCChannel.AI_STATUS_GET_CURRENT, this.handleAIStatusGetCurrent.bind(this))
 
     // 新增：获取预加载脚本路径
-    ipcMain.handle('get-preload-path', (event, preloadName: string) => {
+    ipcMain.handle('get-preload-path', (_event, preloadName: string) => {
       const path = require('path')
       // __dirname 在主进程中指向 dist-electron 目录
       return path.resolve(__dirname, preloadName)
@@ -182,10 +180,11 @@ export class IPCHandler extends EventEmitter {
     ipcMain.handle('open-file-dialog', async(_event, data?: FileOpenDialogRequest) => {
       try {
         const mainWindow = this.windowManager.getMainWindow()
-        const options: Electron.OpenDialogOptions = {
-          properties: ['openFile', ...(data?.multiSelections !== false ? ['multiSelections'] : [])],
-          title: '选择要发送的文件'
+        const properties: Electron.OpenDialogOptions['properties'] = ['openFile']
+        if (data?.multiSelections !== false) {
+          properties.push('multiSelections')
         }
+        const options: Electron.OpenDialogOptions = { properties, title: '选择要发送的文件' }
         if (data?.filters) options.filters = data.filters
         const result = mainWindow
           ? await dialog.showOpenDialog(mainWindow, options)
@@ -199,16 +198,20 @@ export class IPCHandler extends EventEmitter {
 
     ipcMain.handle('file:read', async(_event, data: FileReadRequest): Promise<FileReadResponse> => {
       try {
-        const filePath = data.filePath
+        const { filePath } = data
         if (!existsSync(filePath)) {
-          return { success: false, name: '', size: 0, mimeType: '', base64: '', error: 'File not found' }
+          return {
+            success: false, name: '', size: 0, mimeType: '', base64: '', error: 'File not found'
+          }
         }
         const buffer = readFileSync(filePath)
         const name = basename(filePath)
         const ext = extname(filePath).toLowerCase()
         const mimeType = getMimeType(ext)
         const base64 = buffer.toString('base64')
-        return { success: true, name, size: buffer.length, mimeType, base64 }
+        return {
+          success: true, name, size: buffer.length, mimeType, base64
+        }
       } catch (error) {
         return {
           success: false,
@@ -225,7 +228,7 @@ export class IPCHandler extends EventEmitter {
       try {
         const { webviewId, providerId, file } = data
         const script = getFileUploadScript(providerId, file)
-        const result = await this.executeInWebViewContainer(webviewId, script)
+        await this.executeInWebViewContainer(webviewId, script)
         return { success: true, providerId }
       } catch (error) {
         return {
@@ -237,7 +240,7 @@ export class IPCHandler extends EventEmitter {
     })
 
     // 清除指定provider的存储数据
-    ipcMain.handle('clear-provider-storage', async(event, providerId: string) => {
+    ipcMain.handle('clear-provider-storage', async(_event, providerId: string) => {
       try {
         console.log(`[IPCHandler] Clearing storage for provider: ${providerId}`)
 
@@ -289,7 +292,7 @@ export class IPCHandler extends EventEmitter {
     this.handleSend(IPCChannel.MESSAGE_ERROR, this.handleMessageError.bind(this))
 
     // 监听来自WebView preload脚本的AI状态变化事件
-    ipcMain.on('webview-ai-status-change', (event, data) => {
+    ipcMain.on('webview-ai-status-change', (_event, data) => {
       const { providerId, status, details } = data
 
       // 转换状态为统一格式
@@ -312,7 +315,7 @@ export class IPCHandler extends EventEmitter {
     })
 
     // 内部AI状态变化事件
-    ipcMain.on('internal-ai-status-change', (event, data) => {
+    ipcMain.on('internal-ai-status-change', (_event, data) => {
       const { providerId, statusData } = data
       this.log(`Internal AI status changed for ${providerId}:`, statusData)
 
@@ -397,7 +400,7 @@ export class IPCHandler extends EventEmitter {
    */
   broadcast<T = any>(channel: IPCChannel, data?: T): void {
     const windows = this.windowManager.getAllWindows()
-    windows.forEach((window, windowId) => {
+    windows.forEach((window, _windowId) => {
       if (!window.isDestroyed()) {
         window.webContents.send(channel, data)
       }
@@ -468,6 +471,7 @@ export class IPCHandler extends EventEmitter {
    */
   private async handleToggleFullScreen(): Promise<void> {
     this.windowManager.toggleFullScreen('main')
+    this.sendToRenderer(IPCChannel.DISPLAY_LAYOUT_CHANGE, this.windowManager.getDisplayLayout())
   }
 
   /**
@@ -742,7 +746,7 @@ export class IPCHandler extends EventEmitter {
    */
   private async handleWebViewCreate(data: WebViewCreateRequest): Promise<WebViewCreateResponse> {
     try {
-      const { providerId, url } = data
+      const { providerId } = data
       const webviewId = this.generateId()
 
       // 创建会话
@@ -766,7 +770,7 @@ export class IPCHandler extends EventEmitter {
   /**
    * 处理WebView销毁
    */
-  private async handleWebViewDestroy(data: { webviewId: string }): Promise<{ success: boolean }> {
+  private async handleWebViewDestroy(_data: { webviewId: string }): Promise<{ success: boolean }> {
     // 实现WebView销毁逻辑
     return { success: true }
   }
@@ -774,7 +778,7 @@ export class IPCHandler extends EventEmitter {
   /**
    * 处理WebView重新加载
    */
-  private async handleWebViewReload(data: { webviewId: string }): Promise<{ success: boolean }> {
+  private async handleWebViewReload(_data: { webviewId: string }): Promise<{ success: boolean }> {
     // 实现WebView重新加载逻辑
     return { success: true }
   }
@@ -782,7 +786,7 @@ export class IPCHandler extends EventEmitter {
   /**
    * 处理WebView导航
    */
-  private async handleWebViewNavigate(data: { webviewId: string; url: string }): Promise<{ success: boolean }> {
+  private async handleWebViewNavigate(_data: { webviewId: string; url: string }): Promise<{ success: boolean }> {
     // 实现WebView导航逻辑
     return { success: true }
   }
@@ -847,7 +851,7 @@ export class IPCHandler extends EventEmitter {
   /**
    * 处理WebView CSS插入
    */
-  private async handleWebViewInsertCSS(data: { webviewId: string; css: string }): Promise<{ success: boolean }> {
+  private async handleWebViewInsertCSS(_data: { webviewId: string; css: string }): Promise<{ success: boolean }> {
     // 实现CSS插入逻辑
     return { success: true }
   }
@@ -900,46 +904,37 @@ export class IPCHandler extends EventEmitter {
     const mainWindow = this.windowManager.getMainWindow()
     if (!mainWindow) throw new Error('Main window not found')
 
-    const views = mainWindow.contentView?.children || []
+    const views = mainWindow.getBrowserViews()
     let targetWebContents: Electron.WebContents | null = null
 
     for (const view of views) {
-      const wc = view instanceof BrowserView ? view.webContents
-        : view instanceof WebContentsView ? view.webContents
-        : null
-      if (wc) {
-        try {
-          const elementId = await wc.executeJavaScript(
-            `document.querySelector('[data-webview-id="${webviewId}"]')?.id || document.querySelector('webview')?.id || ''`
-          )
-          if (elementId) {
-            targetWebContents = wc
-            break
-          }
-        } catch {
-          // Not this view
+      const wc = view.webContents
+      try {
+        const elementId = await wc.executeJavaScript(
+          `document.querySelector('[data-webview-id="${webviewId}"]')?.id || document.querySelector('webview')?.id || ''`
+        )
+        if (elementId) {
+          targetWebContents = wc
+          break
         }
+      } catch {
+        // Not this view
       }
     }
 
     if (!targetWebContents) {
       for (const view of views) {
-        const wc = view instanceof BrowserView ? view.webContents
-          : view instanceof WebContentsView ? view.webContents
-          : null
-        if (wc) {
-          try {
-            const result = await wc.executeJavaScript(script)
-            return result
-          } catch {
-            continue
-          }
+        try {
+          const result = await view.webContents.executeJavaScript(script)
+          return result
+        } catch {
+          continue
         }
       }
       throw new Error(`WebView ${webviewId} not found`)
     }
 
-    return await targetWebContents.executeJavaScript(script)
+    return targetWebContents.executeJavaScript(script)
   }
 
   /**
@@ -1027,52 +1022,31 @@ export class IPCHandler extends EventEmitter {
   /**
    * 处理设置获取
    */
-  private async handleSettingsGet(data: SettingsRequest): Promise<SettingsResponse> {
-    try {
-      // 实现设置获取逻辑
-      return {
-        settings: {},
-        success: true
-      }
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      }
+  private async handleSettingsGet(_data: SettingsRequest): Promise<SettingsResponse> {
+    // 实现设置获取逻辑
+    return {
+      settings: {},
+      success: true
     }
   }
 
   /**
    * 处理设置设置
    */
-  private async handleSettingsSet(data: SettingsRequest): Promise<SettingsResponse> {
-    try {
-      // 实现设置设置逻辑
-      return {
-        success: true
-      }
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      }
+  private async handleSettingsSet(_data: SettingsRequest): Promise<SettingsResponse> {
+    // 实现设置设置逻辑
+    return {
+      success: true
     }
   }
 
   /**
    * 处理设置重置
    */
-  private async handleSettingsReset(data: { section?: string }): Promise<SettingsResponse> {
-    try {
-      // 实现设置重置逻辑
-      return {
-        success: true
-      }
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      }
+  private async handleSettingsReset(_data: { section?: string }): Promise<SettingsResponse> {
+    // 实现设置重置逻辑
+    return {
+      success: true
     }
   }
 
@@ -1081,15 +1055,21 @@ export class IPCHandler extends EventEmitter {
    */
   private async handlePerformanceGetMetrics(): Promise<PerformanceMetricsResponse> {
     const { app } = require('electron')
-    const metrics: ProcessMetric[] = app.getAppMetrics()
+    const metrics: Electron.ProcessMetric[] = app.getAppMetrics()
 
     return {
       cpu: {
-        usage: metrics.reduce((sum: number, metric: ProcessMetric) => sum + (metric.cpu?.percentCPUUsage || 0), 0),
+        usage: metrics.reduce(
+          (sum: number, metric: Electron.ProcessMetric) => sum + (metric.cpu?.percentCPUUsage || 0),
+          0
+        ),
         timestamp: new Date()
       },
       memory: {
-        used: metrics.reduce((sum: number, metric: ProcessMetric) => sum + (metric.memory?.workingSetSize || 0), 0),
+        used: metrics.reduce(
+          (sum: number, metric: Electron.ProcessMetric) => sum + (metric.memory?.workingSetSize || 0),
+          0
+        ),
         total: require('os').totalmem(),
         percentage: 0,
         timestamp: new Date()
@@ -1332,27 +1312,55 @@ export class IPCHandler extends EventEmitter {
 }
 
 const MIME_MAP: Record<string, string> = {
-  '.txt': 'text/plain', '.md': 'text/markdown', '.csv': 'text/csv',
-  '.json': 'application/json', '.xml': 'text/xml', '.html': 'text/html',
-  '.js': 'text/javascript', '.ts': 'text/typescript', '.jsx': 'text/javascript',
-  '.tsx': 'text/typescript', '.css': 'text/css', '.scss': 'text/x-scss',
-  '.py': 'text/x-python', '.java': 'text/x-java-source', '.c': 'text/x-c',
-  '.cpp': 'text/x-c++src', '.h': 'text/x-chdr', '.go': 'text/x-go',
-  '.rs': 'text/x-rust', '.rb': 'text/x-ruby', '.php': 'text/x-php',
-  '.sh': 'text/x-shellscript', '.bat': 'text/x-bat', '.ps1': 'text/x-powershell',
-  '.sql': 'text/x-sql', '.yaml': 'text/yaml', '.yml': 'text/yaml',
-  '.toml': 'text/x-toml', '.ini': 'text/x-ini', '.env': 'text/plain',
-  '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
-  '.gif': 'image/gif', '.svg': 'image/svg+xml', '.webp': 'image/webp',
-  '.ico': 'image/x-icon', '.bmp': 'image/bmp',
-  '.pdf': 'application/pdf', '.doc': 'application/msword',
+  '.txt': 'text/plain',
+  '.md': 'text/markdown',
+  '.csv': 'text/csv',
+  '.json': 'application/json',
+  '.xml': 'text/xml',
+  '.html': 'text/html',
+  '.js': 'text/javascript',
+  '.ts': 'text/typescript',
+  '.jsx': 'text/javascript',
+  '.tsx': 'text/typescript',
+  '.css': 'text/css',
+  '.scss': 'text/x-scss',
+  '.py': 'text/x-python',
+  '.java': 'text/x-java-source',
+  '.c': 'text/x-c',
+  '.cpp': 'text/x-c++src',
+  '.h': 'text/x-chdr',
+  '.go': 'text/x-go',
+  '.rs': 'text/x-rust',
+  '.rb': 'text/x-ruby',
+  '.php': 'text/x-php',
+  '.sh': 'text/x-shellscript',
+  '.bat': 'text/x-bat',
+  '.ps1': 'text/x-powershell',
+  '.sql': 'text/x-sql',
+  '.yaml': 'text/yaml',
+  '.yml': 'text/yaml',
+  '.toml': 'text/x-toml',
+  '.ini': 'text/x-ini',
+  '.env': 'text/plain',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.svg': 'image/svg+xml',
+  '.webp': 'image/webp',
+  '.ico': 'image/x-icon',
+  '.bmp': 'image/bmp',
+  '.pdf': 'application/pdf',
+  '.doc': 'application/msword',
   '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   '.xls': 'application/vnd.ms-excel',
   '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   '.ppt': 'application/vnd.ms-powerpoint',
   '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-  '.zip': 'application/zip', '.tar': 'application/x-tar',
-  '.gz': 'application/gzip', '.rar': 'application/x-rar-compressed',
+  '.zip': 'application/zip',
+  '.tar': 'application/x-tar',
+  '.gz': 'application/gzip',
+  '.rar': 'application/x-rar-compressed',
   '.7z': 'application/x-7z-compressed'
 }
 

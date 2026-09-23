@@ -93,7 +93,7 @@ export function generateReviewPrompt(
   const prompt = customPrompt || COMPREHENSIVE_REVIEW_PROMPT
 
   const formattedResponses = responses
-    .filter(r => r.content.trim())
+    .filter((r) => r.content.trim())
     .map((r, index) => `### AI ${index + 1}: ${r.providerName}\n${r.content}`)
     .join('\n\n---\n\n')
 

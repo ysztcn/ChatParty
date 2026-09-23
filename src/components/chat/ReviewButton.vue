@@ -16,7 +16,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { DataAnalysis } from '@element-plus/icons-vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessageBox } from 'element-plus'
 import { useChatStore } from '../../stores'
 import { useReviewStore } from '../../stores/review'
 import { reviewService } from '../../services/ReviewService'
@@ -25,14 +25,14 @@ const chatStore = useChatStore()
 const reviewStore = useReviewStore()
 
 const canReview = computed(() => {
-  const loggedInCount = chatStore.loggedInCount
+  const { loggedInCount } = chatStore
   return loggedInCount >= 2 && reviewStore.canStartReview
 })
 
-const handleReview = async () => {
+const handleReview = async() => {
   try {
     const providers = chatStore.loggedInProviders
-    const providerNames = providers.map(p => p.name)
+    const providerNames = providers.map((p) => p.name)
 
     const { value: reviewerId } = await ElMessageBox.prompt(
       '请选择评审模型（该模型将评审其他模型的回答）',
@@ -44,7 +44,7 @@ const handleReview = async () => {
         inputValue: providers[0]?.id || '',
         inputValidator: (val: string) => {
           if (!val) return '请输入评审模型ID'
-          if (!providers.find(p => p.id === val)) return `无效的模型ID，可选: ${providerNames.join(', ')}`
+          if (!providers.find((p) => p.id === val)) return `无效的模型ID，可选: ${providerNames.join(', ')}`
           return true
         }
       }

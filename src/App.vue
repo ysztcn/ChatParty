@@ -7,18 +7,40 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, onUnmounted } from 'vue'
 import AppLayout from './components/layout/AppLayout.vue'
 import { useAppStore, useLayoutStore } from './stores'
 
 const appStore = useAppStore()
 const layoutStore = useLayoutStore()
 
+// 显示布局监听（应用级常驻，避免在设置页等路由下收不到全屏切换）
+let offDisplayLayout: (() => void) | null = null
+
 // 应用初始化
 onMounted(async() => {
+  // 先订阅，再拉取，避免初始化期间漏掉全屏切换事件
+  if (window.electronAPI?.onDisplayLayoutChanged) {
+    offDisplayLayout = window.electronAPI.onDisplayLayoutChanged((layout) => {
+      layoutStore.updateDisplayLayout(layout)
+    })
+  }
+
   await appStore.initializeApp()
   // 加载布局配置，确保列数等设置在应用启动时被正确恢复
   layoutStore.loadLayoutConfig()
+
+  if (window.electronAPI?.getDisplayLayout) {
+    const layout = await window.electronAPI.getDisplayLayout()
+    layoutStore.updateDisplayLayout(layout)
+  }
+})
+
+onUnmounted(() => {
+  if (offDisplayLayout) {
+    offDisplayLayout()
+    offDisplayLayout = null
+  }
 })
 </script>
 

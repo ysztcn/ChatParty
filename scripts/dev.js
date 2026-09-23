@@ -7,7 +7,7 @@
 const { spawn } = require('child_process')
 const path = require('path')
 
-console.log('🚀 启动 ChatAllAI 开发环境...')
+console.log('🚀 启动 ChatParty 开发环境...')
 console.log('📝 提示: 使用 Ctrl+C 停止开发服务器')
 console.log('')
 

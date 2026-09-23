@@ -7,11 +7,11 @@ export type ReviewStatus = 'idle' | 'collecting' | 'reviewing' | 'completed' | '
 
 /** 评审评分维度 */
 export interface ReviewScore {
-  accuracy: number      // 准确性 1-10
-  completeness: number  // 完整性 1-10
-  logic: number         // 逻辑性 1-10
-  readability: number   // 可读性 1-10
-  practicality: number  // 实用性 1-10
+  accuracy: number // 准确性 1-10
+  completeness: number // 完整性 1-10
+  logic: number // 逻辑性 1-10
+  readability: number // 可读性 1-10
+  practicality: number // 实用性 1-10
 }
 
 /** 单个模型的评审结果 */

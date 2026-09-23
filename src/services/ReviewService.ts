@@ -3,7 +3,7 @@
  */
 
 import type { AIProvider } from '../types'
-import type { ReviewResult, ModelReviewResult } from '../types/review'
+import type { ReviewResult } from '../types/review'
 import { getSendMessageScript } from '../utils/GetLLMLastMessage'
 import { generateReviewPrompt } from '../utils/ReviewPrompts'
 import { useReviewStore } from '../stores/review'
@@ -35,13 +35,13 @@ export class ReviewService {
       return false
     }
 
-    const reviewerProvider = providers.find(p => p.id === reviewerProviderId)
+    const reviewerProvider = providers.find((p) => p.id === reviewerProviderId)
     if (!reviewerProvider) {
       ElMessage.error('未找到评审模型')
       return false
     }
 
-    const targetProviders = providers.filter(p => p.isLoggedIn && p.id !== reviewerProviderId)
+    const targetProviders = providers.filter((p) => p.isLoggedIn && p.id !== reviewerProviderId)
     if (targetProviders.length === 0) {
       ElMessage.warning('至少需要2个已登录的AI模型才能进行评审')
       return false
@@ -61,7 +61,9 @@ export class ReviewService {
 
           const result = await Promise.race([
             window.electronAPI.executeScriptInWebView(provider.webviewId, script),
-            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('超时')), 10000))
+            new Promise<never>((_resolve, reject) => {
+              setTimeout(() => reject(new Error('超时')), 10000)
+            })
           ])
 
           const content = typeof result === 'string' ? result : (result?.result || '')
@@ -93,11 +95,13 @@ export class ReviewService {
       const reviewResult: ReviewResult = {
         id: `review_${Date.now()}`,
         originalQuery,
-        modelResults: responses.map(r => ({
+        modelResults: responses.map((r) => ({
           providerId: r.providerId,
           providerName: r.providerName,
           originalContent: r.content,
-          scores: { accuracy: 0, completeness: 0, logic: 0, readability: 0, practicality: 0 },
+          scores: {
+            accuracy: 0, completeness: 0, logic: 0, readability: 0, practicality: 0
+          },
           totalScore: 0,
           comments: '',
           improvements: ''
@@ -143,7 +147,9 @@ export class ReviewService {
   }
 
   private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms))
+    return new Promise((resolve) => {
+      setTimeout(resolve, ms)
+    })
   }
 }
 

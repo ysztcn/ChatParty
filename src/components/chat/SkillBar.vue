@@ -8,7 +8,9 @@
         class="skill-tag"
         @change="(checked: boolean) => handleToggleSkill(skill, checked)"
       >
-        <el-icon :size="12"><Promotion /></el-icon>
+        <el-icon :size="12">
+          <Promotion />
+        </el-icon>
         <span>{{ skill.name }}</span>
       </el-check-tag>
     </div>
@@ -32,9 +34,7 @@ import type { Skill } from '../../types/agent'
 
 const agentStore = useAgentStore()
 
-const isSkillActive = (skillId: string): boolean => {
-  return agentStore.activeSkills.some(s => s.id === skillId)
-}
+const isSkillActive = (skillId: string): boolean => agentStore.activeSkills.some((s) => s.id === skillId)
 
 const handleToggleSkill = (skill: Skill, checked: boolean) => {
   agentStore.toggleSkill(skill, checked)

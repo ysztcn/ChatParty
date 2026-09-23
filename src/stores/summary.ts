@@ -1,7 +1,7 @@
 /**
  * AI总结状态管理
  *
- * @author huquanzhi
+ * @author 月上中天
  * @since 2026-03-24
  * @version 1.0
  */
@@ -205,10 +205,8 @@ export const useSummaryStore = defineStore('summary', () => {
    * @param id 总结ID
    * @returns 是否成功加载
    */
-  const loadSummaryFromHistory = (id: string): boolean =>
-    // 这里可以实现从本地存储加载完整总结的逻辑
-    // 目前仅返回false，表示需要从服务重新获取
-    false
+  // 从历史记录中加载总结：目前仅返回 false，表示需要从服务重新获取
+  const loadSummaryFromHistory = (_id: string): boolean => false
 
   /**
    * 删除历史记录项

@@ -3,32 +3,6 @@
  * @param providerId AI提供商ID
  * @returns 对应的JavaScript脚本字符串
  */
-import { useScriptConfigStore } from '../stores/scriptConfig'
-import type { ScriptType } from '../types'
-
-function resolveScript(
-  providerId: string,
-  scriptType: ScriptType,
-  defaultScript: string,
-  params?: Record<string, string>
-): string {
-  try {
-    const store = useScriptConfigStore()
-    const custom = store.getCustomScript(providerId, scriptType)
-    if (custom) {
-      let result = custom
-      if (params) {
-        Object.keys(params).forEach((key) => {
-          result = result.replace(new RegExp(`\\{${key}\\}`, 'g'), params[key])
-        })
-      }
-      return result
-    }
-  } catch {
-    // Store not available, use default
-  }
-  return defaultScript
-}
 
 /**
  * HTML转Markdown的辅助脚本（注入到WebView中执行）
@@ -52,7 +26,10 @@ const htmlToMarkdownHelper = `
         case 'br': return '\\n';
         case 'strong': case 'b': return '**' + children + '**';
         case 'em': case 'i': return '*' + children + '*';
-        case 'code': return (node.parentElement && node.parentElement.tagName.toLowerCase() === 'pre') ? children : '\`' + children + '\`';
+        case 'code':
+          return (node.parentElement && node.parentElement.tagName.toLowerCase() === 'pre')
+            ? children
+            : '\`' + children + '\`';
         case 'pre': return '\\n\`\`\`\\n' + children + '\\n\`\`\`\\n\\n';
         case 'blockquote': return '> ' + children.replace(/\\n/g, '\\n> ') + '\\n\\n';
         case 'ul': return children;
@@ -125,14 +102,12 @@ export function getSendMessageScript(providerId: string): string {
     miromind: () => getMiromindLastMessageScript(),
     gemini: () => getGeminiLastMessageScript(),
     chatgpt: () => getChatGPTLastMessageScript(),
-    mimo: () => getMimoLastMessageScript(),
-    minimax: () => getMinimaxLastMessageScript(),
-    ima: () => getIMALastMessageScript()
+    mimo: () => getMimoLastMessageScript()
   }
 
   const scriptGenerator = scripts[providerId]
   const defaultScript = scriptGenerator ? scriptGenerator() : ''
-  return resolveScript(providerId, 'getLLMLastMessage', defaultScript)
+  return defaultScript
 }
 
 function getKimiLastMessageScript(): string {
@@ -426,37 +401,5 @@ function getMimoLastMessageScript(): string {
     const lastMessage = __getLastVisibleMessage(messages);
     if (!lastMessage) return '';
     return htmlToMarkdown(lastMessage);
-  })()`
-}
-
-function getMinimaxLastMessageScript(): string {
-  return `(() => {
-    ${htmlToMarkdownHelper}
-    ${visibilityHelper}
-    const messages = document.querySelectorAll('.message-content');
-    const lastMessage = __getLastVisibleMessage(messages);
-    if (!lastMessage) return '';
-    return htmlToMarkdown(lastMessage);
-  })()`
-}
-
-function getIMALastMessageScript(): string {
-  return `(() => {
-    ${htmlToMarkdownHelper}
-    ${visibilityHelper}
-    const selectors = [
-      '[class*="message-content"]',
-      '[class*="response-content"]',
-      '.markdown-body',
-      '[class*="answer"]'
-    ];
-    for (const sel of selectors) {
-      const messages = document.querySelectorAll(sel);
-      if (messages.length > 0) {
-        const lastMessage = __getLastVisibleMessage(messages);
-        if (lastMessage) return htmlToMarkdown(lastMessage);
-      }
-    }
-    return '';
   })()`
 }

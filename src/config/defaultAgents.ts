@@ -27,7 +27,9 @@ export const defaultAgents: Agent[] = [
     systemPrompt: '你是一个专业的翻译专家，精通中英文互译。请准确翻译用户提供的文本，保持原文的语气和风格，必要时提供翻译说明。如果用户没有指定目标语言，默认翻译为中文。',
     targetProviders: [],
     variables: [
-      { name: 'target_lang', description: '目标语言', defaultValue: '中文', required: true }
+      {
+        name: 'target_lang', description: '目标语言', defaultValue: '中文', required: true
+      }
     ],
     category: '工具',
     isEnabled: true,

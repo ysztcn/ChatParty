@@ -52,7 +52,7 @@ if (isGoogleDomain()) {
     const originalNotification = window.Notification
     Object.defineProperty(window, 'Notification', {
       get: () => class extends originalNotification {
-        static get permission() {
+        static get permission(): NotificationPermission {
           return 'default'
         }
       },
@@ -63,48 +63,80 @@ if (isGoogleDomain()) {
   }
 
   // 5. 修改chrome对象，使其更像真实Chrome
-  if (!window.chrome) {
-    // @ts-ignore
-    window.chrome = {}
+  interface ChromeRuntimeStub {
+    OnInstalledReason: Record<string, string>
+    OnRestartRequiredReason: Record<string, string>
+    PlatformArch: Record<string, string>
+    PlatformNaclArch: Record<string, string>
+    PlatformOs: Record<string, string>
+    RequestUpdateCheckStatus: Record<string, string>
   }
-  // @ts-ignore
-  if (!window.chrome.runtime) {
-    // @ts-ignore
-    window.chrome.runtime = {
-      // @ts-ignore
+  interface ChromeBrowserStub {
+    runtime?: ChromeRuntimeStub
+  }
+  const chromeWindow = window as Window & { chrome?: ChromeBrowserStub }
+  if (!chromeWindow.chrome) {
+    chromeWindow.chrome = {}
+  }
+  if (!chromeWindow.chrome.runtime) {
+    chromeWindow.chrome.runtime = {
       OnInstalledReason: {
-        CHROME_UPDATE: 'chrome_update', EXTENSION_UPDATE: 'extension_update', INSTALL: 'install', SHARED_MODULE_UPDATE: 'shared_module_update'
+        CHROME_UPDATE: 'chrome_update',
+        EXTENSION_UPDATE: 'extension_update',
+        INSTALL: 'install',
+        SHARED_MODULE_UPDATE: 'shared_module_update'
       },
-      // @ts-ignore
       OnRestartRequiredReason: { APP_UPDATE: 'app_update', OS_UPDATE: 'os_update', PERIODIC: 'periodic' },
-      // @ts-ignore
       PlatformArch: {
-        ARM: 'arm', ARM64: 'arm64', MIPS: 'mips', MIPS64: 'mips64', X86_32: 'x86-32', X86_64: 'x86-64'
+        ARM: 'arm',
+        ARM64: 'arm64',
+        MIPS: 'mips',
+        MIPS64: 'mips64',
+        X86_32: 'x86-32',
+        X86_64: 'x86-64'
       },
-      // @ts-ignore
       PlatformNaclArch: {
-        ARM: 'arm', MIPS: 'mips', MIPS64: 'mips64', MIPS64EL: 'mips64el', MIPSEL: 'mipsel', X86_32: 'x86-32', X86_64: 'x86-64'
+        ARM: 'arm',
+        MIPS: 'mips',
+        MIPS64: 'mips64',
+        MIPS64EL: 'mips64el',
+        MIPSEL: 'mipsel',
+        X86_32: 'x86-32',
+        X86_64: 'x86-64'
       },
-      // @ts-ignore
       PlatformOs: {
-        ANDROID: 'android', CROS: 'cros', LINUX: 'linux', MAC: 'mac', OPENBSD: 'openbsd', WIN: 'win'
+        ANDROID: 'android',
+        CROS: 'cros',
+        LINUX: 'linux',
+        MAC: 'mac',
+        OPENBSD: 'openbsd',
+        WIN: 'win'
       },
-      // @ts-ignore
-      RequestUpdateCheckStatus: { NO_UPDATE: 'no_update', THROTTLED: 'throttled', UPDATE_AVAILABLE: 'update_available' }
+      RequestUpdateCheckStatus: {
+        NO_UPDATE: 'no_update',
+        THROTTLED: 'throttled',
+        UPDATE_AVAILABLE: 'update_available'
+      }
     }
   }
 
   // 6. 覆盖Permissions-Policy的客户端API
   // 这可以处理ch-ua-form-factors相关的错误
   try {
-    if (document.featurePolicy) {
-      const originalAllowsFeature = document.featurePolicy.allowsFeature
-      document.featurePolicy.allowsFeature = function(feature: string, origin?: string) {
+    const doc = document as Document & {
+      featurePolicy?: { allowsFeature(feature: string, origin?: string): boolean }
+    }
+    if (doc.featurePolicy) {
+      const originalAllowsFeature = doc.featurePolicy.allowsFeature
+      doc.featurePolicy.allowsFeature = function allowsFeature(
+        feature: string,
+        origin?: string
+      ) {
         // 对于ch-ua-form-factors返回false，避免错误
         if (feature === 'ch-ua-form-factors') {
           return false
         }
-        return originalAllowsFeature.call(this, feature, origin)
+        return originalAllowsFeature.call(doc.featurePolicy, feature, origin)
       }
     }
   } catch (e) {
@@ -128,10 +160,12 @@ if (isGoogleDomain()) {
   }
 
   // 8. 移除Electron特有的全局变量
-  // @ts-ignore
-  delete window.ELECTRON_DISABLE_SECURITY_WARNINGS
-  // @ts-ignore
-  delete window.ELECTRON_ENABLE_SECURITY_WARNINGS
+  const electronWindow = window as Window & {
+    ELECTRON_DISABLE_SECURITY_WARNINGS?: boolean
+    ELECTRON_ENABLE_SECURITY_WARNINGS?: boolean
+  }
+  delete electronWindow.ELECTRON_DISABLE_SECURITY_WARNINGS
+  delete electronWindow.ELECTRON_ENABLE_SECURITY_WARNINGS
 
   console.log('[WebView Preload] Security bypasses applied successfully')
 }

@@ -1,8 +1,16 @@
 <template>
-  <div class="unified-input" :class="{ collapsed: isCollapsed }">
+  <div
+    class="unified-input"
+    :class="{ collapsed: isCollapsed }"
+  >
     <!-- 收起时显示的悬浮展开按钮 -->
     <transition name="fade">
-      <div v-if="isCollapsed" class="floating-expand-btn" title="展开输入框" @click="toggleCollapse">
+      <div
+        v-if="isCollapsed"
+        class="floating-expand-btn"
+        title="展开输入框"
+        @click="toggleCollapse"
+      >
         <el-icon :size="16">
           <ArrowDown />
         </el-icon>
@@ -10,7 +18,10 @@
       </div>
     </transition>
 
-    <el-card v-show="!isCollapsed" class="input-card">
+    <el-card
+      v-show="!isCollapsed"
+      class="input-card"
+    >
       <div class="input-body">
         <!-- 智能体和Skill选择区 -->
         <div class="agent-skill-row">
@@ -19,21 +30,46 @@
             <SkillBar />
           </div>
           <div class="prompt-group">
-            <el-button type="info" :icon="Document" size="small" :disabled="loggedInCount === 0" class="prompt-btn"
-              data-testid="prompt-manager-button" @click="handleOpenPromptManager">
+            <el-button
+              type="info"
+              :icon="Document"
+              size="small"
+              :disabled="loggedInCount === 0"
+              class="prompt-btn"
+              data-testid="prompt-manager-button"
+              @click="handleOpenPromptManager"
+            >
               Prompt
             </el-button>
-            <el-button type="warning" :icon="Lightning" size="small" :disabled="loggedInCount === 0 || !quickPrompt"
-              :title="quickPrompt || '暂无快捷 Prompt'" class="prompt-btn" data-testid="quick-prompt-button"
-              @click="handleApplyQuickPrompt">
+            <el-button
+              type="warning"
+              :icon="Lightning"
+              size="small"
+              :disabled="loggedInCount === 0 || !quickPrompt"
+              :title="quickPrompt || '暂无快捷 Prompt'"
+              class="prompt-btn"
+              data-testid="quick-prompt-button"
+              @click="handleApplyQuickPrompt"
+            >
               快捷
             </el-button>
           </div>
           <div class="header-actions">
-            <el-tag v-if="hasRespondingAI" type="warning" size="small" class="ai-status-tag">
+            <el-tag
+              v-if="hasRespondingAI"
+              type="warning"
+              size="small"
+              class="ai-status-tag"
+            >
               {{ respondingAICount }} 个AI回答中
             </el-tag>
-            <el-button :icon="ArrowUp" size="small" class="collapse-btn" title="收起输入框" @click="toggleCollapse">
+            <el-button
+              :icon="ArrowUp"
+              size="small"
+              class="collapse-btn"
+              title="收起输入框"
+              @click="toggleCollapse"
+            >
               收起
             </el-button>
           </div>
@@ -41,73 +77,104 @@
 
         <!-- 模型选择器 -->
         <div class="model-selector">
-
-          <el-checkbox-group v-model="selectedProviders" class="provider-checkboxes" @change="handleProviderSelection">
-            <el-checkbox v-for="provider in sortedProviders" :key="provider.id" :label="provider.id"
-              :disabled="provider.loadingState === 'loading'" class="provider-checkbox" draggable="true"
-              @dragstart="handleDragStart($event, provider)" @dragover="handleDragOver($event)"
-              @dragleave="handleDragLeave($event)" @drop="handleDrop($event, provider)" @dragend="handleDragEnd">
+          <el-checkbox-group
+            v-model="selectedProviders"
+            class="provider-checkboxes"
+            @change="handleProviderSelection"
+          >
+            <el-checkbox
+              v-for="provider in sortedProviders"
+              :key="provider.id"
+              :label="provider.id"
+              :disabled="provider.loadingState === 'loading'"
+              class="provider-checkbox"
+              draggable="true"
+              @dragstart="handleDragStart($event, provider)"
+              @dragover="handleDragOver($event)"
+              @dragleave="handleDragLeave($event)"
+              @drop="handleDrop($event, provider)"
+              @dragend="handleDragEnd"
+            >
               <div class="provider-option">
-                <img :src="provider.icon" :alt="provider.name" class="provider-icon-small" @error="handleIconError">
+                <img
+                  :src="provider.icon"
+                  :alt="provider.name"
+                  class="provider-icon-small"
+                  @error="handleIconError"
+                >
                 <span class="provider-name">{{ provider.name }}</span>
-                <el-tag v-if="getProviderAIStatus(provider.id) === 'responding'" type="warning" size="small"
-                  class="ai-status-tag">
+                <el-tag
+                  v-if="getProviderAIStatus(provider.id) === 'responding'"
+                  type="warning"
+                  size="small"
+                  class="ai-status-tag"
+                >
                   回答中
                 </el-tag>
-                <el-tag v-else-if="provider.isLoggedIn && selectedProviders.includes(provider.id)" type="success"
-                  size="small" class="status-tag">
+                <el-tag
+                  v-else-if="provider.isLoggedIn && selectedProviders.includes(provider.id)"
+                  type="success"
+                  size="small"
+                  class="status-tag"
+                >
                   已选
                 </el-tag>
-                <el-icon v-if="provider.loadingState === 'loading'" class="loading-icon">
+                <el-icon
+                  v-if="provider.loadingState === 'loading'"
+                  class="loading-icon"
+                >
                   <Loading />
                 </el-icon>
-                <span v-if="provider.isCustom" class="custom-remove" title="移除自定义网站"
-                  @click.stop.prevent="handleRemoveCustomProvider(provider.id)">
-                  <el-icon :size="12">
-                    <Close />
-                  </el-icon>
-                </span>
               </div>
             </el-checkbox>
-            <div class="add-provider-btn" @click="showAddProviderDialog">
-              <el-icon :size="14">
-                <Plus />
-              </el-icon>
-              <span>添加网站</span>
-            </div>
           </el-checkbox-group>
-
-          <el-dialog v-model="addProviderDialogVisible" title="添加自定义网站" width="400px" destroy-on-close append-to-body>
-            <el-form :model="addProviderForm" label-width="60px">
-              <el-form-item label="名称" required>
-                <el-input v-model="addProviderForm.name" placeholder="如：MyGPT" />
-              </el-form-item>
-              <el-form-item label="网址" required>
-                <el-input v-model="addProviderForm.url" placeholder="https://example.com" />
-              </el-form-item>
-            </el-form>
-            <template #footer>
-              <el-button @click="addProviderDialogVisible = false">取消</el-button>
-              <el-button type="primary" @click="handleAddProvider">添加</el-button>
-            </template>
-          </el-dialog>
         </div>
 
         <div class="input-content">
           <div class="textarea-container">
-            <el-input ref="textareaRef" v-model="currentMessage" type="textarea" :rows="textareaRows"
-              :placeholder="inputPlaceholder" :disabled="loggedInCount === 0" class="message-input"
-              data-testid="message-input" @keydown.ctrl.enter="handleSend" @keydown.meta.enter="handleSend"
-              @input="handleInput" @focus="handleFocus" @blur="handleBlur" />
-            <div class="textarea-resize-handle" title="拖拽调整大小" @mousedown="startResize" @touchstart="startResize" />
-            <div class="textarea-expand-button" :title="isExpanded ? '收起输入框' : '全屏输入'" @click="toggleExpand">
+            <el-input
+              ref="textareaRef"
+              v-model="currentMessage"
+              type="textarea"
+              :rows="textareaRows"
+              :placeholder="inputPlaceholder"
+              :disabled="loggedInCount === 0"
+              class="message-input"
+              data-testid="message-input"
+              @keydown.enter.exact.prevent="handleSend"
+              @keydown.ctrl.enter="handleSend"
+              @keydown.meta.enter="handleSend"
+              @input="handleInput"
+              @focus="handleFocus"
+              @blur="handleBlur"
+            />
+            <div
+              class="textarea-resize-handle"
+              title="拖拽调整大小"
+              @mousedown="startResize"
+              @touchstart="startResize"
+            />
+            <div
+              class="textarea-expand-button"
+              :title="isExpanded ? '收起输入框' : '全屏输入'"
+              @click="toggleExpand"
+            >
               <el-icon>{{ isExpanded ? 'Minus' : 'Plus' }}</el-icon>
             </div>
           </div>
 
-          <div v-if="attachedFiles.length > 0" class="attached-files">
-            <el-tag v-for="(file, index) in attachedFiles" :key="index" closable size="small"
-              :type="file.isText ? 'info' : 'warning'" @close="removeFile(index)">
+          <div
+            v-if="attachedFiles.length > 0"
+            class="attached-files"
+          >
+            <el-tag
+              v-for="(file, index) in attachedFiles"
+              :key="index"
+              closable
+              size="small"
+              :type="file.isText ? 'info' : 'warning'"
+              @close="removeFile(index)"
+            >
               {{ file.name }} ({{ formatFileSize(file.size) }})
             </el-tag>
           </div>
@@ -115,49 +182,98 @@
           <div class="input-actions">
             <div class="actions-left">
               <div class="action-group action-group-util">
-                <el-button :icon="Refresh" size="small" :disabled="hasSendingMessages" data-testid="refresh-button"
-                  @click="handleRefresh">
+                <el-button
+                  :icon="Refresh"
+                  size="small"
+                  :disabled="hasSendingMessages"
+                  data-testid="refresh-button"
+                  @click="handleRefresh"
+                >
                   刷新连接
                 </el-button>
-                <el-button :icon="UploadFilled" size="small" :disabled="loggedInCount === 0 || hasSendingMessages"
-                  title="发送文件到已登录的AI" @click="triggerFileSelect">
+                <el-button
+                  :icon="UploadFilled"
+                  size="small"
+                  :disabled="loggedInCount === 0 || hasSendingMessages"
+                  title="发送文件到已登录的AI"
+                  @click="triggerFileSelect"
+                >
                   发送文件
                 </el-button>
-                <input ref="fileInputRef" type="file" multiple style="display:none" accept=".pdf,.doc,.docx,.txt,.md,.csv,.json,.png,.jpg,.jpeg,.gif,.webp,.svg"
-                  @change="handleFileInputChange">
-                <el-button :icon="Delete" size="small" :disabled="!currentMessage" data-testid="clear-button"
-                  @click="handleClear">
+                <input
+                  ref="fileInputRef"
+                  type="file"
+                  multiple
+                  style="display:none"
+                  accept=".pdf,.doc,.docx,.txt,.md,.csv,.json,.png,.jpg,.jpeg,.gif,.webp,.svg"
+                  @change="handleFileInputChange"
+                >
+                <el-button
+                  :icon="Delete"
+                  size="small"
+                  :disabled="!currentMessage"
+                  data-testid="clear-button"
+                  @click="handleClear"
+                >
                   清空
                 </el-button>
               </div>
               <div class="action-group action-group-analysis">
-                <el-button :type="discussionStore.isRunning ? 'danger' : 'success'" size="small"
-                  @click="handleDiscussionToggle">
+                <el-button
+                  :type="discussionStore.isRunning ? 'danger' : 'success'"
+                  size="small"
+                  @click="handleDiscussionToggle"
+                >
                   <el-icon :size="14">
                     <ChatLineRound />
                   </el-icon>
                   {{ discussionStore.isRunning ? '讨论中...' : '多模型讨论' }}
                 </el-button>
-                <el-button type="info" :icon="DocumentChecked" :disabled="!canSummarize" size="small" title="总结各AI的回答"
-                  data-testid="summary-button" @click="handleSummary">
+                <el-button
+                  type="info"
+                  :icon="DocumentChecked"
+                  :disabled="!canSummarize"
+                  size="small"
+                  title="总结各AI的回答"
+                  data-testid="summary-button"
+                  @click="handleSummary"
+                >
                   总结
                 </el-button>
-                <el-button type="success" :icon="ScaleToOriginal" :disabled="loggedInCount < 2" size="small"
-                  title="对比各AI的回答" @click="handleComparison">
+                <el-button
+                  type="success"
+                  :icon="ScaleToOriginal"
+                  :disabled="loggedInCount < 2"
+                  size="small"
+                  title="对比各AI的回答"
+                  @click="handleComparison"
+                >
                   对比
                 </el-button>
               </div>
             </div>
 
             <div class="actions-right">
-              <el-button type="success" :icon="Plus" :disabled="loggedInCount === 0" size="small"
-                data-testid="new-chat-button" @click="handleNewChat">
+              <el-button
+                type="success"
+                :icon="Plus"
+                :disabled="loggedInCount === 0"
+                size="small"
+                data-testid="new-chat-button"
+                @click="handleNewChat"
+              >
                 新建对话
               </el-button>
-              <el-button type="primary" :icon="Position" :loading="hasSendingMessages" size="small"
-                :disabled="!currentMessage || loggedInCount === 0 || hasRespondingAI" data-testid="send-button"
-                @click="handleSend">
-                发送到所有AI (Ctrl+Enter)
+              <el-button
+                type="primary"
+                :icon="Position"
+                :loading="hasSendingMessages"
+                size="small"
+                :disabled="!currentMessage || loggedInCount === 0 || hasRespondingAI"
+                data-testid="send-button"
+                @click="handleSend"
+              >
+                发送到所有AI (Enter)
               </el-button>
             </div>
           </div>
@@ -165,7 +281,11 @@
       </div>
     </el-card>
 
-    <PromptManager v-model="promptManagerVisible" :user-input="currentMessage" @apply-prompt="handleApplyPrompt" />
+    <PromptManager
+      v-model="promptManagerVisible"
+      :user-input="currentMessage"
+      @apply-prompt="handleApplyPrompt"
+    />
   </div>
 </template>
 
@@ -174,16 +294,29 @@ import {
   computed, onMounted, onUnmounted, ref, nextTick
 } from 'vue'
 import {
-  EditPen, Position, Refresh, Delete, Select, Loading, Plus, Minus, Document, Rank, Lightning, DocumentChecked, ArrowUp, ArrowDown, ChatLineRound, ScaleToOriginal, SetUp, UploadFilled, Close
+  Position,
+  Refresh,
+  Delete,
+  Loading,
+  Plus,
+  Document,
+  Lightning,
+  DocumentChecked,
+  ArrowUp,
+  ArrowDown,
+  ChatLineRound,
+  ScaleToOriginal,
+  UploadFilled
 } from '@element-plus/icons-vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { useChatStore } from '../../stores'
-import { useAgentStore } from '../../stores/agent'
+import { useReviewStore } from '../../stores/review'
 import AgentSelector from './AgentSelector.vue'
 import SkillBar from './SkillBar.vue'
 import { useDiscussionStore } from '../../stores/discussion'
 import { discussionService } from '../../services/DiscussionService'
 import { messageDispatcher } from '../../services/MessageDispatcher'
+import { reviewService } from '../../services/ReviewService'
 import type { MessageSendResult } from '../../services/MessageDispatcher'
 import type { AIProvider } from '@/types'
 import PromptManager from './PromptManager.vue'
@@ -191,8 +324,7 @@ import PromptManager from './PromptManager.vue'
 const chatStore = useChatStore()
 
 // 组件事件
-const emit = defineEmits<{
-  (e: 'summary'): void
+const emit = defineEmits<{(e: 'summary'): void
   (e: 'open-discussion'): void
   (e: 'open-comparison'): void
 }>()
@@ -409,13 +541,15 @@ const handleIconError = (event: Event): void => {
 }
 
 // AI状态相关方法
-const getProviderAIStatus = (providerId: string): 'waiting_input' | 'responding' | 'completed' | undefined => aiStatusMap.value[providerId]
+const getProviderAIStatus = (
+  providerId: string
+): 'waiting_input' | 'responding' | 'completed' | undefined => aiStatusMap.value[providerId]
 
 const updateAIStatus = (providerId: string, status: 'waiting_input' | 'responding' | 'completed'): void => {
   aiStatusMap.value[providerId] = status
 }
 
-const stopAIStatusMonitoring = async (): Promise<void> => {
+const stopAIStatusMonitoring = async(): Promise<void> => {
   try {
     if (window.electronAPI) {
       const { loggedInProviders } = chatStore
@@ -438,7 +572,7 @@ const stopAIStatusMonitoring = async (): Promise<void> => {
 // 处理AI状态变化事件
 const handleAIStatusChange = (data: any) => {
   const {
-    providerId, status, timestamp, details
+    providerId, status, details
   } = data
 
   console.log(`AI状态变化: ${providerId} -> ${status}`, details)
@@ -460,12 +594,6 @@ const handleAIStatusChange = (data: any) => {
 }
 
 const loggedInCount = computed(() => chatStore.loggedInCount)
-const totalProviders = computed(() => chatStore.totalProviders)
-
-// 已选中且已登录的提供商数量
-const connectedProviders = computed(() => availableProviders.value.filter((provider) => provider.isLoggedIn && selectedProviders.value.includes(provider.id)))
-
-const connectedCount = computed(() => connectedProviders.value.length)
 
 const hasSendingMessages = computed(() => messageDispatcher.hasSendingMessages())
 
@@ -477,10 +605,10 @@ const respondingAICount = computed(() => Object.values(aiStatusMap.value).filter
 // 是否有AI已完成回答（用于判断是否可以总结）
 const hasCompletedAI = computed(() => Object.values(aiStatusMap.value).some((status) => status === 'completed'))
 
-// 是否可以进行总结
-const canSummarize = computed(() =>
-  // 至少有一个AI已完成回答，且没有AI正在回答中
-  hasCompletedAI.value && !hasRespondingAI.value && loggedInCount.value > 0)
+// 是否可以进行总结（至少有一个AI已完成回答，且没有AI正在回答中）
+const canSummarize = computed(
+  () => hasCompletedAI.value && !hasRespondingAI.value && loggedInCount.value > 0
+)
 
 const inputPlaceholder = computed(() => {
   if (loggedInCount.value === 0) {
@@ -719,7 +847,7 @@ const loadQuickPrompt = (): void => {
 /**
  * 发送消息
  */
-const handleSend = async (): Promise<void> => {
+const handleSend = async(): Promise<void> => {
   if (loggedInCount.value === 0) {
     ElMessage.warning('请先登录至少一个AI网站')
     return
@@ -792,8 +920,6 @@ const handleSend = async (): Promise<void> => {
  */
 const triggerAutoReviewIfNeeded = (messageContent: string, providers: AIProvider[]) => {
   try {
-    const { useReviewStore } = require('../../stores/review')
-    const { reviewService } = require('../../services/ReviewService')
     const reviewStore = useReviewStore()
 
     if (!reviewStore.config.autoReview || !reviewStore.config.reviewerProviderId) return
@@ -813,7 +939,7 @@ const triggerAutoReviewIfNeeded = (messageContent: string, providers: AIProvider
 /**
  * 刷新连接
  */
-const handleRefresh = async (): Promise<void> => {
+const handleRefresh = async(): Promise<void> => {
   try {
     messageDispatcher.resetAllStatus()
     if (window.electronAPI) {
@@ -838,17 +964,15 @@ const attachedFiles = ref<AttachedFile[]>([])
 
 const TEXT_MIME_PREFIXES = ['text/', 'application/json', 'application/xml', 'application/javascript']
 
-const isTextMimeType = (mimeType: string): boolean => {
-  return TEXT_MIME_PREFIXES.some(prefix => mimeType.startsWith(prefix))
-}
+const isTextMimeType = (mimeType: string): boolean => TEXT_MIME_PREFIXES.some((prefix) => mimeType.startsWith(prefix))
 
 const formatFileSize = (bytes: number): string => {
-  if (bytes < 1024) return bytes + ' B'
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
-  return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-const triggerFileSelect = async (): Promise<void> => {
+const triggerFileSelect = async(): Promise<void> => {
   if (!window.electronAPI) return
 
   try {
@@ -859,7 +983,7 @@ const triggerFileSelect = async (): Promise<void> => {
       const fileResult = await window.electronAPI.readFile({ filePath })
       if (!fileResult.success) continue
 
-      const exists = attachedFiles.value.some(f => f.name === fileResult.name)
+      const exists = attachedFiles.value.some((f) => f.name === fileResult.name)
       if (exists) continue
 
       attachedFiles.value.push({
@@ -880,11 +1004,35 @@ const removeFile = (index: number): void => {
   attachedFiles.value.splice(index, 1)
 }
 
+const handleFileInputChange = (event: Event): void => {
+  const input = event.target as HTMLInputElement
+  if (!input.files) return
+
+  for (const file of Array.from(input.files)) {
+    const exists = attachedFiles.value.some((f) => f.name === file.name)
+    if (exists) continue
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = String(reader.result)
+      attachedFiles.value.push({
+        name: file.name,
+        size: file.size,
+        mimeType: file.type,
+        base64: result.split(',')[1],
+        isText: isTextMimeType(file.type)
+      })
+    }
+    reader.readAsDataURL(file)
+  }
+  input.value = ''
+}
+
 const appendFileContentToMessage = (): void => {
-  const textFiles = attachedFiles.value.filter(f => f.isText && f.size < 50 * 1024)
-  textFiles.forEach(file => {
+  const textFiles = attachedFiles.value.filter((f) => f.isText && f.size < 50 * 1024)
+  textFiles.forEach((file) => {
     try {
-      const bytes = Uint8Array.from(atob(file.base64), c => c.charCodeAt(0))
+      const bytes = Uint8Array.from(atob(file.base64), (c) => c.charCodeAt(0))
       const decoded = new TextDecoder('utf-8').decode(bytes)
       chatStore.currentMessage += `\n\n\`\`\`${getLangFromMime(file.mimeType)}:${file.name}\n${decoded}\n\`\`\``
     } catch {
@@ -895,17 +1043,28 @@ const appendFileContentToMessage = (): void => {
 
 const getLangFromMime = (mimeType: string): string => {
   const map: Record<string, string> = {
-    'text/javascript': 'javascript', 'text/typescript': 'typescript',
-    'application/json': 'json', 'text/xml': 'xml', 'text/html': 'html',
-    'text/css': 'css', 'text/x-python': 'python', 'text/x-java-source': 'java',
-    'text/x-c': 'c', 'text/x-c++src': 'cpp', 'text/x-go': 'go',
-    'text/x-rust': 'rust', 'text/x-ruby': 'ruby', 'text/x-php': 'php',
-    'text/x-shellscript': 'bash', 'text/x-sql': 'sql', 'text/yaml': 'yaml'
+    'text/javascript': 'javascript',
+    'text/typescript': 'typescript',
+    'application/json': 'json',
+    'text/xml': 'xml',
+    'text/html': 'html',
+    'text/css': 'css',
+    'text/x-python': 'python',
+    'text/x-java-source': 'java',
+    'text/x-c': 'c',
+    'text/x-c++src': 'cpp',
+    'text/x-go': 'go',
+    'text/x-rust': 'rust',
+    'text/x-ruby': 'ruby',
+    'text/x-php': 'php',
+    'text/x-shellscript': 'bash',
+    'text/x-sql': 'sql',
+    'text/yaml': 'yaml'
   }
   return map[mimeType] || ''
 }
 
-const sendBinaryFilesToWebViews = async (): Promise<void> => {
+const sendBinaryFilesToWebViews = async(): Promise<void> => {
   const filesToSend = attachedFiles.value
   const loggedIn = chatStore.loggedInProviders
 
@@ -939,49 +1098,6 @@ const sendBinaryFilesToWebViews = async (): Promise<void> => {
   }
 }
 
-const handleFileUpload = async (): Promise<void> => {
-  await triggerFileSelect()
-}
-
-const addProviderDialogVisible = ref(false)
-const addProviderForm = ref({ name: '', url: '' })
-
-const showAddProviderDialog = () => {
-  addProviderForm.value = { name: '', url: '' }
-  addProviderDialogVisible.value = true
-}
-
-const handleAddProvider = () => {
-  if (!addProviderForm.value.name.trim()) {
-    ElMessage.warning('请输入网站名称')
-    return
-  }
-  if (!addProviderForm.value.url.trim()) {
-    ElMessage.warning('请输入网站网址')
-    return
-  }
-  chatStore.addCustomProvider({
-    name: addProviderForm.value.name.trim(),
-    url: addProviderForm.value.url.trim()
-  })
-  addProviderDialogVisible.value = false
-  ElMessage.success('网站已添加')
-}
-
-const handleRemoveCustomProvider = async (providerId: string) => {
-  try {
-    await ElMessageBox.confirm('确定移除该自定义网站？', '确认移除', {
-      confirmButtonText: '移除',
-      cancelButtonText: '取消',
-      type: 'warning'
-    })
-    chatStore.removeCustomProvider(providerId)
-    ElMessage.success('已移除')
-  } catch {
-    // cancelled
-  }
-}
-
 /**
  * 清空输入
  */
@@ -992,7 +1108,7 @@ const handleClear = (): void => {
 /**
  * 新建对话
  */
-const handleNewChat = async (): Promise<void> => {
+const handleNewChat = async(): Promise<void> => {
   if (loggedInCount.value === 0) {
     ElMessage.warning('请先登录至少一个AI网站')
     return
@@ -1171,7 +1287,7 @@ const handleLoginStatusChanged = (event: CustomEvent) => {
 /**
  * 为当前已登录的提供商启动AI状态监控
  */
-const startAIStatusMonitoringForLoggedInProviders = async (): Promise<void> => {
+const startAIStatusMonitoringForLoggedInProviders = async(): Promise<void> => {
   const { loggedInProviders } = chatStore
 
   if (loggedInProviders.length === 0) {
@@ -1189,7 +1305,7 @@ const startAIStatusMonitoringForLoggedInProviders = async (): Promise<void> => {
 /**
  * 为单个提供商启动AI状态监控
  */
-const startAIStatusMonitoringForProvider = async (providerId: string): Promise<void> => {
+const startAIStatusMonitoringForProvider = async(providerId: string): Promise<void> => {
   try {
     if (!window.electronAPI) {
       console.warn('electronAPI不可用，无法启动AI状态监控')
@@ -1210,7 +1326,7 @@ const startAIStatusMonitoringForProvider = async (providerId: string): Promise<v
     console.log(`启动AI状态监控: ${provider.name} (webviewId: ${webviewId})`)
 
     // 延迟启动，确保webview和登录检测脚本已完全加载
-    setTimeout(async () => {
+    setTimeout(async() => {
       try {
         const result = await window.electronAPI.startAIStatusMonitoring({
           webviewId,
@@ -1244,7 +1360,7 @@ const startAIStatusMonitoringForProvider = async (providerId: string): Promise<v
 /**
  * 为单个提供商停止AI状态监控
  */
-const stopAIStatusMonitoringForProvider = async (providerId: string): Promise<void> => {
+const stopAIStatusMonitoringForProvider = async(providerId: string): Promise<void> => {
   try {
     if (!window.electronAPI) {
       console.warn('electronAPI不可用，无法停止AI状态监控')
@@ -1501,49 +1617,6 @@ onUnmounted(() => {
   position: relative;
   overflow: hidden;
   white-space: nowrap;
-}
-
-.custom-remove {
-  position: absolute;
-  top: -2px;
-  right: -2px;
-  width: 16px;
-  height: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--el-color-danger);
-  color: #fff;
-  border-radius: 50%;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.2s;
-  z-index: 1;
-}
-
-.provider-option:hover .custom-remove {
-  opacity: 1;
-}
-
-.add-provider-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  background: transparent;
-  border: 1.5px dashed var(--el-border-color);
-  border-radius: 16px;
-  cursor: pointer;
-  color: var(--el-text-color-secondary);
-  font-size: 12px;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-
-.add-provider-btn:hover {
-  border-color: var(--el-color-primary);
-  color: var(--el-color-primary);
-  background: var(--el-color-primary-light-9);
 }
 
 .drag-handle {

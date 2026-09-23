@@ -1,7 +1,7 @@
 /**
  * AI总结功能类型定义
  *
- * @author huquanzhi
+ * @author 月上中天
  * @since 2026-03-24
  * @version 1.0
  */

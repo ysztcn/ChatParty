@@ -2,7 +2,7 @@
  * 新建对话脚本工具类
  * 提供不同AI网站的新建对话脚本
  *
- * @author huquanzhi
+ * @author 月上中天
  * @since 2024-12-19 14:30
  * @version 1.0
  */
@@ -12,33 +12,6 @@
  * @param providerId AI提供商ID
  * @returns 对应的JavaScript脚本字符串
  */
-import { useScriptConfigStore } from '../stores/scriptConfig'
-import type { ScriptType } from '../types'
-
-function resolveScript(
-  providerId: string,
-  scriptType: ScriptType,
-  defaultScript: string,
-  params?: Record<string, string>
-): string {
-  try {
-    const store = useScriptConfigStore()
-    const custom = store.getCustomScript(providerId, scriptType)
-    if (custom) {
-      let result = custom
-      if (params) {
-        Object.keys(params).forEach((key) => {
-          result = result.replace(new RegExp(`\\{${key}\\}`, 'g'), params[key])
-        })
-      }
-      return result
-    }
-  } catch {
-    // Store not available, use default
-  }
-  return defaultScript
-}
-
 export function getNewChatScript(providerId: string): string {
   const scripts: Record<string, string> = {
     kimi: getKimiNewChatScript(),
@@ -52,11 +25,10 @@ export function getNewChatScript(providerId: string): string {
     miromind: getMiromindNewChatScript(),
     gemini: getGeminiNewChatScript(),
     chatgpt: getChatGPTNewChatScript(),
-    mimo: getMimoNewChatScript(),
-    minimax: getMinimaxNewChatScript()
+    mimo: getMimoNewChatScript()
   }
 
-  return resolveScript(providerId, 'newChat', scripts[providerId] || getGenericNewChatScript())
+  return scripts[providerId] || getGenericNewChatScript()
 }
 
 /**
@@ -657,62 +629,6 @@ function getMimoNewChatScript(): string {
         }
       } catch (error) {
         console.error('发送快捷键失败:', error);
-        return false;
-      }
-    })()
-  `
-}
-
-/**
- * minimax新建对话脚本
- */
-function getMinimaxNewChatScript(): string {
-  return `
-    (function() {
-      try {
-        const key = 'k';
-        
-        // 创建更精确的键盘事件
-        const eventOptions = {
-          key: key,
-          code: 'KeyK',
-          keyCode: 75,
-          which: 75,
-          ctrlKey: true,
-          metaKey: false,
-          altKey: false,
-          shiftKey: false,
-          bubbles: true,
-          cancelable: true
-        };
-        
-        // 尝试在多个目标上发送事件
-        const targets = [
-          document.activeElement,
-          document.querySelector('input, textarea'),
-          document.body,
-          document
-        ];
-        
-        for (const target of targets) {
-          if (target) {
-            try {
-              target.dispatchEvent(new KeyboardEvent('keydown', eventOptions));
-              target.dispatchEvent(new KeyboardEvent('keyup', eventOptions));
-              console.log('已在目标上发送快捷键:', target);
-            } catch (e) {
-              console.log('目标事件发送失败:', target, e);
-            }
-          }
-        }
-        
-        console.log('已发送快捷键: Ctrl+K');
-        if(expandButton) {
-          expandButton.click();
-        }
-        return true;
-      } catch (error) {
-        console.error('Minimax新建会话失败:', error);
         return false;
       }
     })()

@@ -2,9 +2,7 @@
 
 ## 🚀 快速构建步骤
 
-### 步骤 1: 安装依赖e:
-
-<br />
+### 步骤 1: 安装依赖
 
 ```bash
 npm install
@@ -28,16 +26,12 @@ npm run clean
 
 ### 步骤 3: 构建应用
 
-#### 方案 A: 构建不含工具集的版本（推荐）
-
 ```bash
-npm run build:prod
-```
+# 安装包 + 绿色版
+npm run build:win
 
-#### 方案 B: 构建含工具集的版本
-
-```bash
-npm run build:with-toolset
+# 仅绿色版（免安装）
+npm run build:win:portable
 ```
 
 ## ⚠️ 常见问题解决
@@ -91,33 +85,26 @@ electron_builder_binaries_mirror=https://npmmirror.com/mirrors/electron-builder-
 1. 访问镜像网站下载所需文件
 2. 放置到缓存目录：`%LOCALAPPDATA%\electron-builder\Cache\`
 
-### 问题 3: 文件不存在错误
-
-**错误信息**：
-
-```
-file source doesn't exist from=node_modules/...
-```
+### 问题 3: 下载超时或网络不稳定
 
 **解决方案**：
 
-已在 `package.json` 中移除 `extraResources` 配置，此问题已解决。
-
-如果仍然出现，请运行：
+1. 确认 `.npmrc` 中已配置国内镜像（见问题 2）
+2. 清理缓存后重试：
 
 ```bash
-# 清理并重新安装
 npm run clean
-rm -rf node_modules
 npm install
+npm run build:prod
 ```
 
 ## 📦 构建输出
 
-构建完成后，安装包位于 `dist/` 目录：
+构建命令会在打包前自动清理 `dist/`、`dist-electron/`。构建完成后，产物位于 `dist/` 目录：
 
-- **Windows**: `dist/ChatParty Setup 1.0.1.exe`
-- **macOS**: `dist/ChatParty-1.0.1.dmg`
+- **Windows 安装包**: `dist/ChatParty Setup <版本>.exe`
+- **Windows 绿色版**: `dist/ChatParty <版本>.exe`（免安装，双击运行）
+- **macOS**: `dist/ChatParty-<版本>.dmg`
 
 ## 🎯 推荐构建流程
 
@@ -142,7 +129,7 @@ npm run clean
 # 3. 安装依赖
 npm install
 
-# 4. 构建（不含工具集）
+# 4. 构建
 npm run build:prod
 ```
 
@@ -153,42 +140,12 @@ npm run build:prod
 npm run build:prod
 ```
 
-## 🔧 环境变量配置
-
-### .env 文件（开发环境）
-
-```env
-VITE_ENABLE_TOOLSET=true
-```
-
-### .env.production 文件（生产环境）
-
-```env
-VITE_ENABLE_TOOLSET=false
-```
-
-### 临时修改
-
-```bash
-# Windows PowerShell
-$env:VITE_ENABLE_TOOLSET="true"
-npm run build
-
-# Windows CMD
-set VITE_ENABLE_TOOLSET=true
-npm run build
-
-# Linux/Mac
-VITE_ENABLE_TOOLSET=true npm run build
-```
-
 ## 📝 构建检查清单
 
 构建前请确认：
 
-- [ ] 已安装 Node.js 16+ 和 npm
+- [ ] 已安装 Node.js 18+ 和 npm
 - [ ] 已运行 `npm install`
-- [ ] 已配置环境变量（可选）
 - [ ] 以管理员身份运行（Windows）
 - [ ] 有足够的磁盘空间（至少 2GB）
 - [ ] 杀毒软件已添加信任（可选）
@@ -214,7 +171,7 @@ rm package-lock.json
 npm install
 ```
 
-1. 提交 Issue 并附上完整错误日志
+5. 提交 Issue 并附上完整错误日志
 
 ## 💡 提示
 

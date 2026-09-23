@@ -10,10 +10,10 @@ import router from './router'
 const app = createApp(App)
 const pinia = createPinia()
 
-// 注册所有Element Plus图标
-for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
+// 注册所有 Element Plus 图标
+Object.entries(ElementPlusIconsVue).forEach(([key, component]) => {
   app.component(key, component)
-}
+})
 
 app.use(pinia)
 app.use(router)

@@ -2,7 +2,11 @@
   <div class="chat-view">
     <div class="chat-container">
       <!-- 统一输入区域 -->
-      <div class="input-section">
+      <div
+        ref="inputSectionRef"
+        class="input-section"
+        :style="inputSectionStyle"
+      >
         <UnifiedInput
           @summary="handleSummaryClick"
           @open-discussion="handleOpenDiscussion"
@@ -12,6 +16,26 @@
 
       <!-- AI卡片网格 -->
       <div
+        v-if="isMultiScreen"
+        class="cards-grid-multi"
+      >
+        <div
+          v-for="(group, index) in screenGroups"
+          :key="index"
+          class="screen-grid"
+          :style="getScreenGridStyle(index, group.length)"
+        >
+          <AICard
+            v-for="provider in group"
+            :key="provider.id"
+            :provider="provider"
+            :config="getCardConfig(provider.id)"
+            class="card-item"
+          />
+        </div>
+      </div>
+      <div
+        v-else
         class="cards-grid"
         :style="gridStyle"
       >
@@ -42,9 +66,10 @@
 
 <script setup lang="ts">
 import {
-  computed, onMounted, onUnmounted, ref, watch
+  computed, onMounted, onUnmounted, ref
 } from 'vue'
-import { useChatStore, useLayoutStore, useSummaryStore } from '../stores'
+import type { CSSProperties } from 'vue'
+import { useChatStore, useLayoutStore } from '../stores'
 import { summaryService } from '../services/SummaryService'
 import UnifiedInput from '../components/chat/UnifiedInput.vue'
 import AICard from '../components/chat/AICard.vue'
@@ -54,7 +79,6 @@ import type { AIProvider } from '../types'
 
 const chatStore = useChatStore()
 const layoutStore = useLayoutStore()
-const summaryStore = useSummaryStore()
 
 // 总结侧边栏显示状态 - 默认显示（收起状态）
 const sidebarVisible = ref(true)
@@ -197,7 +221,7 @@ const visibleProviders = computed(() => {
   return sortedProviders
 })
 
-const gridStyle = computed(() => {
+const gridStyle = computed<CSSProperties>(() => {
   const { columns } = layoutStore.gridSettings
   const { gap } = layoutStore.gridSettings
   const cardCount = visibleProviders.value.length
@@ -215,6 +239,71 @@ const gridStyle = computed(() => {
     boxSizing: 'border-box'
   }
 })
+
+/**
+ * 是否处于多屏全屏
+ */
+const isMultiScreen = computed(() => layoutStore.isMultiScreenFullScreen)
+
+// 输入区域引用与高度
+const inputSectionRef = ref<HTMLElement | null>(null)
+const inputHeight = ref(0)
+
+/**
+ * 输入区域样式（多屏时固定到主屏）
+ */
+const inputSectionStyle = computed(() => {
+  if (!isMultiScreen.value) return {}
+  const primary = layoutStore.primaryScreen
+  return {
+    position: 'fixed' as const,
+    top: '60px',
+    left: `${primary.x}px`,
+    width: `${primary.width}px`,
+    zIndex: '150'
+  }
+})
+
+/**
+ * 多屏时按屏幕分组的卡片列表
+ */
+const screenGroups = computed(() => {
+  if (!isMultiScreen.value) return []
+  const counts = layoutStore.getPerScreenCardCounts(visibleProviders.value.length)
+  const groups: AIProvider[][] = []
+  let offset = 0
+  counts.forEach((count) => {
+    groups.push(visibleProviders.value.slice(offset, offset + count))
+    offset += count
+  })
+  return groups
+})
+
+/**
+ * 单个屏幕网格样式
+ */
+const getScreenGridStyle = (index: number, cardCount: number) => {
+  const { screens } = layoutStore.displayLayout
+  const screen = screens[index] || { x: 0, width: 0 }
+  const columns = Math.max(1, Math.min(layoutStore.gridSettings.columns, cardCount))
+  const rows = Math.ceil(cardCount / columns)
+  const { gap, minCardHeight } = layoutStore.gridSettings
+  const isPrimary = index === layoutStore.displayLayout.primaryIndex
+  const topOffset = isPrimary ? 60 + inputHeight.value : 0
+  return {
+    position: 'absolute' as const,
+    left: `${screen.x}px`,
+    top: `${topOffset}px`,
+    width: `${screen.width}px`,
+    height: isPrimary ? `calc(100% - ${topOffset}px)` : '100%',
+    display: 'grid',
+    gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+    gridTemplateRows: `repeat(${rows}, minmax(${minCardHeight}px, 1fr))`,
+    gap: `${gap}px`,
+    padding: `${gap}px`,
+    boxSizing: 'border-box' as const
+  }
+}
 
 /**
  * 获取卡片配置
@@ -249,6 +338,9 @@ const handleKeyDown = (event: KeyboardEvent) => {
     }
   }
 }
+
+// 输入区域高度观察器
+let inputResizeObserver: ResizeObserver | null = null
 
 // 生命周期
 onMounted(() => {
@@ -291,6 +383,15 @@ onMounted(() => {
   // 立即执行布局初始化
   initializeLayout()
 
+  // 测量输入区域高度（用于多屏时主屏卡片偏移）
+  if (inputSectionRef.value) {
+    inputHeight.value = inputSectionRef.value.offsetHeight
+    inputResizeObserver = new ResizeObserver(() => {
+      inputHeight.value = inputSectionRef.value?.offsetHeight || 0
+    })
+    inputResizeObserver.observe(inputSectionRef.value)
+  }
+
   // 监听窗口大小变化
   window.addEventListener('resize', handleResize)
 
@@ -304,6 +405,12 @@ onUnmounted(() => {
 
   // 移除键盘事件监听
   window.removeEventListener('keydown', handleKeyDown)
+
+  // 断开输入区域高度观察器
+  if (inputResizeObserver) {
+    inputResizeObserver.disconnect()
+    inputResizeObserver = null
+  }
 })
 </script>
 
@@ -335,6 +442,18 @@ onUnmounted(() => {
 .cards-grid {
   flex: 1 1 auto;
   min-height: 0;       /* 关键：允许 grid 在 flex 容器中正确收缩，避免外部出现空白 */
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.cards-grid-multi {
+  flex: 1 1 auto;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.screen-grid {
   overflow-y: auto;
   overflow-x: hidden;
 }

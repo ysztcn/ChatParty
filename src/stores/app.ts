@@ -18,7 +18,10 @@ export const useAppStore = defineStore('app', () => {
     language: 'zh-CN',
     autoSave: true,
     notifications: true,
-    shortcuts: {}
+    shortcuts: {},
+    fontSize: 14,
+    animationEnabled: true,
+    soundEnabled: false
   })
 
   // 布局配置
@@ -28,12 +31,19 @@ export const useAppStore = defineStore('app', () => {
     gridLayout: {
       columns: 3,
       rows: 2,
-      gap: 16
+      gap: 16,
+      containerWidth: 0,
+      containerHeight: 0
     },
     theme: {
+      mode: 'auto',
       primaryColor: '#409EFF',
-      backgroundColor: '#f5f5f5'
-    }
+      backgroundColor: '#f5f5f5',
+      textColor: '#333333',
+      borderColor: '#dcdfe6',
+      shadowColor: 'rgba(0, 0, 0, 0.1)'
+    },
+    version: '1.0.0'
   })
 
   // 计算属性

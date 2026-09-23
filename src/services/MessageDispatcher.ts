@@ -114,9 +114,12 @@ export class MessageDispatcher extends BrowserEventEmitter {
 
     // 将消息加入队列
     this.messageQueue.set(finalMessageId, {
-      messageId: finalMessageId,
-      providers,
-      status: 'queued'
+      id: finalMessageId,
+      content: '',
+      timestamp: new Date(),
+      sender: 'user',
+      providerId: '',
+      status: 'sending'
     })
 
     this.log('Starting new chat script dispatch', { messageId: finalMessageId, providers })
@@ -131,8 +134,18 @@ export class MessageDispatcher extends BrowserEventEmitter {
             id: providerId,
             webviewId: providerId, // 使用providerId作为webviewId
             name: providerId,
-            type: 'webview',
-            status: 'active'
+            url: '',
+            icon: '',
+            isLoggedIn: true,
+            sessionData: {
+              cookies: [],
+              localStorage: {},
+              sessionStorage: {},
+              isActive: true,
+              lastActiveTime: new Date()
+            },
+            isEnabled: true,
+            loadingState: 'loaded'
           }
 
           // 获取新建对话脚本
@@ -447,7 +460,7 @@ export class MessageDispatcher extends BrowserEventEmitter {
    * 创建超时Promise
    */
   private createTimeoutPromise(timeout: number): Promise<never> {
-    return new Promise((_, reject) => {
+    return new Promise((_resolve, reject) => {
       setTimeout(() => {
         reject(new Error(`Message send timeout after ${timeout}ms`))
       }, timeout)
@@ -458,7 +471,9 @@ export class MessageDispatcher extends BrowserEventEmitter {
    * 延迟函数
    */
   private delay(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms))
+    return new Promise((resolve) => {
+      setTimeout(resolve, ms)
+    })
   }
 
   /**

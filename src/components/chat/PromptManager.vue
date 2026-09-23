@@ -555,10 +555,11 @@ const selectedPrompt = computed(() => {
 const extractVariables = (content: string): string[] => {
   const regex = /\{\{([^}]+)\}\}/g
   const variables: string[] = []
-  let match
+  let match = regex.exec(content)
 
-  while ((match = regex.exec(content)) !== null) {
+  while (match !== null) {
     variables.push(`{{${match[1]}}}`)
+    match = regex.exec(content)
   }
 
   return [...new Set(variables)]
@@ -688,7 +689,7 @@ const handleSave = async(): Promise<void> => {
   })
 }
 
-const handleDelete = async(prompt: Prompt): void => {
+const handleDelete = async(prompt: Prompt): Promise<void> => {
   try {
     await ElMessageBox.confirm(
       `确定要删除 prompt "${prompt.name}" 吗？`,
@@ -733,7 +734,13 @@ const handleApplyPrompt = (prompt: Prompt): void => {
   const now = new Date()
   const date = now.toISOString().split('T')[0]
   const datetime = now.toLocaleString('zh-CN', {
-    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
   }).replace(/\//g, '-')
   content = content.replace(/\{\{date\}\}/g, date)
   content = content.replace(/\{\{datetime\}\}/g, datetime)
@@ -890,7 +897,8 @@ const insertVariable = (variableName: string): void => {
 
   nextTick(() => {
     textarea.focus()
-    textarea.selectionStart = textarea.selectionEnd = start + variableName.length
+    textarea.selectionStart = start + variableName.length
+    textarea.selectionEnd = start + variableName.length
   })
 }
 

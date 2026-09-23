@@ -8,7 +8,7 @@
 const { spawn } = require('child_process')
 const path = require('path')
 
-console.log('🚀 启动 ChatAllAI 生产环境...')
+console.log('🚀 启动 ChatParty 生产环境...')
 console.log('📝 提示: 使用 Ctrl+C 停止应用')
 console.log('')
 
@@ -47,8 +47,8 @@ viteBuild.on('close', (code) => {
     process.exit(0)
   })
 
-  electronProcess.on('close', (code) => {
-    console.log(`\n✅ 应用已停止 (退出码: ${code})`)
-    process.exit(code)
+  electronProcess.on('close', (exitCode) => {
+    console.log(`\n✅ 应用已停止 (退出码: ${exitCode})`)
+    process.exit(exitCode)
   })
 })

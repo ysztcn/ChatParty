@@ -78,15 +78,12 @@
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElNotification } from 'element-plus'
 import type { AIProvider } from '../../types'
-import { useChatStore } from '../../stores'
 
 interface Props {
   providers: AIProvider[]
 }
 
 const props = defineProps<Props>()
-
-const chatStore = useChatStore()
 
 const isRefreshing = ref(false)
 const loadingStates = ref<Record<string, boolean>>({})
@@ -108,10 +105,9 @@ const checkSessionSilent = async(providerId: string): Promise<boolean> => {
     if (loadResponse.exists && loadResponse.sessionData) {
       sessionStates.value[providerId] = true
       return true
-    } else {
-      sessionStates.value[providerId] = false
-      return false
     }
+    sessionStates.value[providerId] = false
+    return false
   } catch (error) {
     console.error(`Failed to check session for ${providerId}:`, error)
     sessionStates.value[providerId] = false
@@ -183,24 +179,33 @@ const refreshAllSessions = async(): Promise<void> => {
     )
 
     const loggedIn = props.providers.filter(
-      (p, i) => results[i].status === 'fulfilled' && results[i].value
+      (_p, i) => results[i].status === 'fulfilled' && results[i].value
     )
     const notLoggedIn = props.providers.filter(
-      (p, i) => results[i].status === 'fulfilled' && !results[i].value
+      (_p, i) => results[i].status === 'fulfilled' && !results[i].value
     )
     const failed = props.providers.filter(
-      (p, i) => results[i].status === 'rejected'
+      (_p, i) => results[i].status === 'rejected'
     )
 
     const lines: string[] = []
     if (loggedIn.length > 0) {
-      lines.push(`<div style="color:var(--el-color-success);margin:4px 0">✅ 已登录 (${loggedIn.length}): ${loggedIn.map((p) => p.name).join('、')}</div>`)
+      const names = loggedIn.map((p) => p.name).join('、')
+      lines.push(
+        `<div style="color:var(--el-color-success);margin:4px 0">✅ 已登录 (${loggedIn.length}): ${names}</div>`
+      )
     }
     if (notLoggedIn.length > 0) {
-      lines.push(`<div style="color:var(--el-color-info);margin:4px 0">⚪ 未登录 (${notLoggedIn.length}): ${notLoggedIn.map((p) => p.name).join('、')}</div>`)
+      const names = notLoggedIn.map((p) => p.name).join('、')
+      lines.push(
+        `<div style="color:var(--el-color-info);margin:4px 0">⚪ 未登录 (${notLoggedIn.length}): ${names}</div>`
+      )
     }
     if (failed.length > 0) {
-      lines.push(`<div style="color:var(--el-color-danger);margin:4px 0">❌ 检测失败 (${failed.length}): ${failed.map((p) => p.name).join('、')}</div>`)
+      const names = failed.map((p) => p.name).join('、')
+      lines.push(
+        `<div style="color:var(--el-color-danger);margin:4px 0">❌ 检测失败 (${failed.length}): ${names}</div>`
+      )
     }
 
     ElNotification({

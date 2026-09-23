@@ -7,7 +7,6 @@ import {
   BrowserWindow, BrowserWindowConstructorOptions, screen, app
 } from 'electron'
 import { join } from 'path'
-import { isDev } from '../utils'
 import { EventEmitter } from 'events'
 
 app.commandLine.appendSwitch('remote-debugging-port', '9222')
@@ -49,6 +48,10 @@ export class WindowManager extends EventEmitter {
 
   private mainWindowId: string | null = null
 
+  private fullScreenState: 0 | 1 | 2 = 0
+
+  private normalBounds: { x: number; y: number; width: number; height: number } | null = null
+
   /**
    * 创建主窗口
    */
@@ -75,19 +78,14 @@ export class WindowManager extends EventEmitter {
       icon: isDev
         ? join(__dirname, '../../public/icons/chatparty-icon.png')
         : join(__dirname, '../dist/icons/chatparty-icon.png'),
-      // 开发环境显示菜单栏，生产环境隐藏
-      autoHideMenuBar: !isDev,
-      // 开发环境显示窗口框架，生产环境隐藏窗口框架（无边框窗口）
-      frame: isDev
+      // 隐藏系统菜单栏
+      autoHideMenuBar: true,
+      // 无边框窗口，使用自定义标题栏
+      frame: false
     }
 
     const window = await this.createWindow(config)
     this.mainWindowId = 'main'
-
-    // 开发环境下自动打开开发者工具
-    if (isDev) {
-      window.webContents.openDevTools()
-    }
 
     return window
   }
@@ -103,7 +101,8 @@ export class WindowManager extends EventEmitter {
     // 创建窗口
     const window = new BrowserWindow(config)
 
-    const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+      + '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     // 应用于所有请求
     window.webContents.setUserAgent(userAgent)
 
@@ -225,13 +224,48 @@ export class WindowManager extends EventEmitter {
     const window = this.getWindow(id)
     if (!window) return false
 
-    if (window.isFullScreen()) {
-      window.setFullScreen(false)
-    } else {
-      window.setFullScreen(true)
+    // 校正状态：单屏全屏被外部退出（如按 Esc）时回到正常
+    if (this.fullScreenState === 1 && !window.isFullScreen()) {
+      this.fullScreenState = 0
     }
 
-    this.emit('window-fullscreen-toggled', { id, isFullScreen: window.isFullScreen() })
+    if (this.fullScreenState === 0) {
+      // 正常 → 单屏全屏
+      this.normalBounds = window.getBounds()
+      window.setFullScreen(true)
+      this.fullScreenState = 1
+    } else if (this.fullScreenState === 1) {
+      // 单屏全屏 → 多屏全屏
+      window.setFullScreen(false)
+      const displays = screen.getAllDisplays()
+      let minX = Infinity
+      let minY = Infinity
+      let maxX = -Infinity
+      let maxY = -Infinity
+      for (const display of displays) {
+        const { bounds } = display
+        minX = Math.min(minX, bounds.x)
+        minY = Math.min(minY, bounds.y)
+        maxX = Math.max(maxX, bounds.x + bounds.width)
+        maxY = Math.max(maxY, bounds.y + bounds.height)
+      }
+      window.setBounds({
+        x: minX,
+        y: minY,
+        width: maxX - minX,
+        height: maxY - minY
+      })
+      this.fullScreenState = 2
+    } else {
+      // 多屏全屏 → 正常
+      if (this.normalBounds) {
+        window.setBounds(this.normalBounds)
+      }
+      this.normalBounds = null
+      this.fullScreenState = 0
+    }
+
+    this.emit('window-fullscreen-toggled', { id, isFullScreen: this.fullScreenState !== 0 })
     return true
   }
 
@@ -345,6 +379,40 @@ export class WindowManager extends EventEmitter {
   }
 
   /**
+   * 获取显示布局信息（各屏幕在窗口坐标系中的位置）
+   */
+  getDisplayLayout() {
+    const displays = screen.getAllDisplays()
+    const primaryId = screen.getPrimaryDisplay().id
+    let minX = Infinity
+    let minY = Infinity
+    for (const display of displays) {
+      minX = Math.min(minX, display.bounds.x)
+      minY = Math.min(minY, display.bounds.y)
+    }
+
+    let primaryIndex = 0
+    const screens = displays.map((display, index) => {
+      if (display.id === primaryId) {
+        primaryIndex = index
+      }
+      return {
+        x: display.bounds.x - minX,
+        y: display.bounds.y - minY,
+        width: display.bounds.width,
+        height: display.bounds.height
+      }
+    })
+
+    return {
+      fullScreenState: this.fullScreenState,
+      screenCount: displays.length,
+      primaryIndex,
+      screens
+    }
+  }
+
+  /**
    * 关闭所有窗口
    */
   closeAllWindows(): void {
@@ -445,17 +513,19 @@ export class WindowManager extends EventEmitter {
         await window.loadURL(urlOrRoute)
       } else {
         // 如果是应用路由
-        const isDev = process.env.NODE_ENV === 'development'
+        const devMode = process.env.NODE_ENV === 'development'
         // 动态获取输出目录
         const outDir = process.env.VITE_OUT_DIR || 'dist'
-        const baseUrl = isDev ? 'http://localhost:5173' : `file://${join(app.getAppPath(), outDir, '/index.html')}`
+        const baseUrl = devMode
+          ? 'http://localhost:5173'
+          : `file://${join(app.getAppPath(), outDir, '/index.html')}`
         const fullUrl = urlOrRoute.startsWith('/') ? `${baseUrl}#${urlOrRoute}` : `${baseUrl}#/${urlOrRoute}`
         await window.loadURL(fullUrl)
       }
     } else {
       // 加载默认页面
-      const isDev = process.env.NODE_ENV === 'development'
-      if (isDev) {
+      const devMode = process.env.NODE_ENV === 'development'
+      if (devMode) {
         await window.loadURL('http://localhost:5173')
       } else {
         // 动态获取输出目录
