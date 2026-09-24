@@ -78,6 +78,19 @@ npm run build:mac:universal
 
 版本号由 `scripts/bump-version.js` 在构建时根据 `package.json` 自动递增。
 
+## GitHub Releases 自动发布
+
+推送 `v*` 标签时，GitHub Actions（`.github/workflows/release.yml`）会自动在 Windows 与 macOS 上构建，并把安装包上传到对应 Release：
+
+```bash
+npm version --no-git-tag-version 1.0.5   # 本地同步版本号（可选，CI 会按标签自动设置）
+git commit -am "chore: release v1.0.5"
+git tag v1.0.5
+git push origin main v1.0.5
+```
+
+CI 中不执行 `bump-version.js`，产物版本号与标签保持一致。
+
 ## 注意事项
 
 1. **首次构建**: 首次构建会下载 Electron 和相关工具，可能需要较长时间
