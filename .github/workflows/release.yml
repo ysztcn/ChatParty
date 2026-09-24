@@ -24,7 +24,7 @@ jobs:
 
       - name: 设置版本号（与标签一致）
         shell: bash
-        run: npm version --no-git-tag-version "${GITHUB_REF_NAME#v}"
+        run: npm version --no-git-tag-version --allow-same-version "${GITHUB_REF_NAME#v}"
 
       - name: 构建 Windows 安装包与便携版
         run: |
@@ -54,7 +54,7 @@ jobs:
         run: npm ci
 
       - name: 设置版本号（与标签一致）
-        run: npm version --no-git-tag-version "${GITHUB_REF_NAME#v}"
+        run: npm version --no-git-tag-version --allow-same-version "${GITHUB_REF_NAME#v}"
 
       - name: 构建 macOS dmg
         run: |
