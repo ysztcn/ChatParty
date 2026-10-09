@@ -131,7 +131,7 @@
                   <el-link
                     type="primary"
                     href="https://github.com/ysztcn/ChatParty/issues"
-                    target="_blank"
+                    @click.prevent="openExternal('https://github.com/ysztcn/ChatParty/issues')"
                   >
                     GitHub Issues →
                   </el-link>
@@ -234,6 +234,11 @@ const copyToClipboard = async(text: string): Promise<void> => {
     document.body.removeChild(textarea)
     ElMessage.success('链接已复制')
   }
+}
+
+// 用系统默认浏览器打开外部链接
+const openExternal = (url: string): void => {
+  window.electronAPI.openExternal(url)
 }
 </script>
 

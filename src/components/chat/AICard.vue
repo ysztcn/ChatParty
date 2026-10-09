@@ -325,9 +325,20 @@ const cardStyle = computed(() => {
     }
   }
 
-  // 最大化：由 .ai-card.maximized 类样式接管 (position: fixed)
+  // 最大化：普通卡片用 store 计算的屏幕内几何（多屏全屏时限制在所属屏幕）；
+  // 总结卡片由 .ai-card.maximized 类样式接管 (position: fixed)
   if (isMaximized) {
-    return baseStyle
+    if (isSummaryCard.value) return baseStyle
+    const { position, size } = props.config
+    const width = typeof size.width === 'number' ? size.width : layoutStore.windowSize.width - 32
+    const height = typeof size.height === 'number' ? size.height : layoutStore.windowSize.height - 120
+    return {
+      ...baseStyle,
+      left: `${position.x}px`,
+      top: `${position.y}px`,
+      width: `${width}px`,
+      height: `${height}px`
+    }
   }
 
   // 普通模式：宽高全部 100%，跟随父级 grid 单元自适应屏幕尺寸
@@ -534,8 +545,7 @@ const handleWebViewReady = (): void => {
   const provider = chatStore.getProvider(props.provider.id)
   if (provider) {
     provider.loadingState = 'loaded'
-    // 应用代理配置
-    applyProxyConfig()
+    // 代理配置已在WebView首次加载前应用，此处不再重复应用与刷新
   }
 }
 
@@ -842,10 +852,6 @@ onMounted(() => {
 
 .ai-card.maximized {
   position: fixed !important;
-  top: 16px !important;
-  left: 16px !important;
-  width: calc(100vw - 32px) !important;
-  height: calc(100vh - 120px) !important;
   z-index: 1000 !important;
   box-shadow: 0 0 20px rgba(0, 0, 0, 0.3) !important;
   border-color: var(--el-color-primary);

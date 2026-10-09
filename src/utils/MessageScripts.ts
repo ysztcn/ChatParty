@@ -112,14 +112,27 @@ function getYuanBaoScript(escapedMessage: string): string {
           input.focus();
           document.execCommand('selectAll', false, null);
           document.execCommand('delete', false, null);
-          const success = document.execCommand('insertText', false, text);
-          if (success) {
-            ['input', 'change', 'keydown', 'keyup', 'keypress', 'focus', 'blur'].forEach(eventType => {
-              const event = new Event(eventType, { bubbles: true });
-              input.dispatchEvent(event);
-            });
-            return '使用execCommand成功设置文本: ' + text;
+          // quill 编辑器中 execCommand insertText 会丢失换行后的内容，优先走 quill 原生 paste 处理
+          let handled = false;
+          try {
+            const dt = new DataTransfer();
+            dt.setData('text/plain', text);
+            const pasteEvent = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true });
+            handled = !input.dispatchEvent(pasteEvent);
+          } catch (e) {
+            handled = false;
           }
+          if (!handled) {
+            const success = document.execCommand('insertText', false, text);
+            if (!success) {
+              return '插入文本失败';
+            }
+          }
+          ['input', 'change', 'keydown', 'keyup', 'keypress', 'focus', 'blur'].forEach(eventType => {
+            const event = new Event(eventType, { bubbles: true });
+            input.dispatchEvent(event);
+          });
+          return '成功设置文本: ' + text;
         } else {
           return '未找到输入框';
         }
@@ -555,7 +568,77 @@ function getQwenScript(escapedMessage: string): string {
  * Copilot发送脚本
  */
 function getCopilotScript(escapedMessage: string): string {
-  return getDeepSeekScript(escapedMessage)
+  return `
+    (function() {
+      const MESSAGE = '${escapedMessage}';
+      const INPUT_SEND_DELAY_MS = 500;
+
+      function findChatInput() {
+        return document.querySelector('[data-testid="composer-input"]')
+          || document.querySelector('#userInput')
+          || document.querySelector('textarea');
+      }
+
+      function findSendButton() {
+        const btn = document.querySelector('[data-testid="submit-button"]');
+        if (btn) return btn;
+        const submit = Array.from(document.querySelectorAll('button')).find((b) => {
+          const label = (b.getAttribute('aria-label') || '').toLowerCase();
+          return label.includes('submit') || label.includes('send') || label.includes('发送') || label.includes('提交');
+        });
+        return submit || null;
+      }
+
+      function setValue(el) {
+        el.focus();
+        try {
+          const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+          setter.call(el, MESSAGE);
+        } catch (e) {
+          el.value = MESSAGE;
+        }
+        try {
+          el.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: false, inputType: 'insertText', data: MESSAGE }));
+        } catch (e) {
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+
+      function send(el) {
+        const btn = findSendButton();
+        if (btn) {
+          try {
+            btn.removeAttribute('disabled');
+            btn.disabled = false;
+            if (btn.getAttribute('aria-disabled') === 'true') btn.setAttribute('aria-disabled', 'false');
+          } catch (e) {}
+          ['mousedown', 'mouseup', 'click'].forEach((type) => {
+            btn.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
+          });
+          return;
+        }
+        el.dispatchEvent(new KeyboardEvent('keydown', {
+          bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13, shiftKey: false
+        }));
+      }
+
+      const input = findChatInput();
+      if (!input || input.tagName !== 'TEXTAREA') {
+        console.error('[Copilot] 未找到输入框:', input);
+        return false;
+      }
+
+      try {
+        setValue(input);
+        setTimeout(() => { send(input); }, INPUT_SEND_DELAY_MS);
+        return true;
+      } catch (e) {
+        console.error('[Copilot] 发送失败:', e);
+        return false;
+      }
+    })()
+  `
 }
 
 /**

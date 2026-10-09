@@ -46,6 +46,7 @@ Thumbs.db
 # 临时文件
 *.tmp
 *.temp
+/.opencode-tmp/
 
 # AI 工具本地目录
 /.trae/

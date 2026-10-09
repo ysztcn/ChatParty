@@ -153,14 +153,17 @@ const createWebView = async(): Promise<void> => {
     }
   }
 
+  // 加载前先应用代理配置，避免页面先以其他出口IP完成加载与验证再切换代理
+  await applyStoredProxy()
+
   console.log(`WebView created for ${props.provider.name}, URL: ${props.provider.url}`)
+
+  // 绑定事件（在插入DOM前绑定，避免did-attach等早期事件在appendChild时触发而丢失）
+  bindWebViewEvents(webview)
 
   // 添加到容器
   container.appendChild(webview)
   webviewElement.value = webview
-
-  // 绑定事件
-  bindWebViewEvents(webview)
 }
 
 /**
@@ -173,9 +176,94 @@ const getUserAgent = (): string => {
 }
 
 /**
+ * 加载前应用已保存的代理配置，与AICard代理对话框使用同一份存储
+ */
+interface StoredProxyConfig {
+  enabled?: boolean
+  protocol?: string
+  address?: string
+  port?: string
+}
+
+const applyStoredProxy = async(): Promise<void> => {
+  if (!window.electronAPI) return
+
+  const stored = localStorage.getItem(`proxy-config-${originalProviderId.value}`)
+  const config: StoredProxyConfig = stored
+    ? JSON.parse(stored)
+    : {
+      enabled: false,
+      protocol: 'http',
+      address: '127.0.0.1',
+      port: '7897'
+    }
+
+  const proxyRules = config.enabled
+    ? `${config.protocol}://${config.address}:${config.port}`
+    : 'direct://'
+
+  await window.electronAPI.setProxy({
+    webviewId: props.provider.webviewId,
+    proxyRules,
+    enabled: config.enabled === true
+  })
+  console.log(`Applied proxy before load for ${props.provider.name}: ${proxyRules}`)
+}
+
+/**
  * 绑定WebView事件
  */
+/**
+ * 主世界注入 UA 与 navigator.userAgentData 品牌修正
+ * preload 运行在隔离世界，其修改无法到达页面；
+ * UA声称Chrome但brands缺少Google Chrome会被Cloudflare Turnstile判定为自动化环境
+ */
+const GROK_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+
+const UA_DATA_SPOOF_SCRIPT = `(() => {
+  Object.defineProperty(navigator, 'userAgent', {
+    get: () => '${GROK_USER_AGENT}',
+    configurable: true
+  })
+  const original = navigator.userAgentData
+  if (!original || original.brands.some((b) => b.brand === 'Google Chrome')) return
+  const brands = [
+    { brand: 'Not_A Brand', version: '8' },
+    { brand: 'Chromium', version: '120' },
+    { brand: 'Google Chrome', version: '120' }
+  ]
+  const fullVersionList = [
+    { brand: 'Not_A Brand', version: '8.0.0.0' },
+    { brand: 'Chromium', version: '120.0.6099.291' },
+    { brand: 'Google Chrome', version: '120.0.6099.291' }
+  ]
+  const patched = {
+    brands,
+    mobile: original.mobile,
+    platform: 'Windows',
+    getHighEntropyValues: (hints) =>
+      original.getHighEntropyValues(hints).then((values) => ({
+        ...values,
+        brands,
+        platform: 'Windows',
+        platformVersion: values.platformVersion || '10.0.0',
+        uaFullVersion: values.uaFullVersion || '120.0.6099.291',
+        ...(values.fullVersionList ? { fullVersionList } : {})
+      }))
+  }
+  Object.defineProperty(navigator, 'userAgentData', { get: () => patched, configurable: true })
+})()`
+
 const bindWebViewEvents = (webview: Electron.WebviewTag): void => {
+  // Grok：导航完成后在主世界注入UA与brands修正（webContents UA由主进程web-contents-created统一设置）
+  if (originalProviderId.value === 'grok') {
+    webview.addEventListener('did-navigate', () => {
+      webview.executeJavaScript(UA_DATA_SPOOF_SCRIPT).catch((e) => {
+        console.error(`UA spoof injection failed for ${props.provider.name}:`, e)
+      })
+    })
+  }
+
   // 页面开始加载
   webview.addEventListener('did-start-loading', () => {
     const isSignificant = isInitialLoad.value

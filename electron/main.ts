@@ -1,6 +1,6 @@
 import { app, BrowserWindow } from 'electron'
 import { WindowManager } from './managers/WindowManager'
-import { SessionManager } from './managers/SessionManager'
+import { SessionManager, GROK_USER_AGENT } from './managers/SessionManager'
 import { IPCHandler } from './managers/IPCHandler'
 
 /**
@@ -10,20 +10,72 @@ import { IPCHandler } from './managers/IPCHandler'
 function configureCommandLineSwitches(): void {
   console.log('[Main] Configuring command line switches for Gemini compatibility')
 
-  // 禁用第三方Cookie拦截 - 解决Google登录的Cookie问题
-  app.commandLine.appendSwitch('disable-features', 'ThirdPartyCookieBlocking')
+  // 禁用第三方Cookie拦截与SameSite默认限制 - 解决Google/Grok登录的Cookie问题
+  // 注意：Chromium对重复的disable-features开关取最后一次的值，必须合并为一次调用
+  app.commandLine.appendSwitch(
+    'disable-features',
+    'ThirdPartyCookieBlocking,SameSiteByDefaultCookies,CookiesWithoutSameSiteMustBeSecure'
+  )
 
   // 禁用站点隔离试验 - 减少跨域限制
   app.commandLine.appendSwitch('disable-site-isolation-trials')
 
-  // 允许所有Cookie - 确保Google登录流程正常
-  app.commandLine.appendSwitch('disable-features', 'SameSiteByDefaultCookies,CookiesWithoutSameSiteMustBeSecure')
+  // 本地代理对HTTP/2多路复用处理有缺陷（WINDOW_UPDATE invalid stream导致响应流损坏、字体等资源下载不完整），
+  // 降级到HTTP/1.1保证资源完整性
+  app.commandLine.appendSwitch('disable-http2')
 
   console.log('[Main] Command line switches configured')
 }
 
 // 在应用ready之前配置命令行开关
 configureCommandLineSwitches()
+
+// webview guest创建时（文档生成前）统一UA，确保navigator.userAgent（含iframe）与会话UA一致
+// webContents.setUserAgent只作用于网络请求头，renderer端navigator须用Emulation覆盖
+app.on('web-contents-created', (_event, webContents) => {
+  if (webContents.getType() !== 'webview' || webContents.session.getUserAgent() !== GROK_USER_AGENT) return
+
+  try {
+    webContents.debugger.attach('1.3')
+  } catch (error) {
+    console.error('[Main] Failed to attach debugger for Grok UA override:', error)
+    return
+  }
+
+  const applyUserAgentOverride = (): void => {
+    webContents.debugger
+      .sendCommand('Emulation.setUserAgentOverride', {
+        userAgent: GROK_USER_AGENT,
+        platform: 'Windows',
+        userAgentMetadata: {
+          brands: [
+            { brand: 'Not_A Brand', version: '8' },
+            { brand: 'Chromium', version: '120' },
+            { brand: 'Google Chrome', version: '120' }
+          ],
+          fullVersionList: [
+            { brand: 'Not_A Brand', version: '8.0.0.0' },
+            { brand: 'Chromium', version: '120.0.6099.291' },
+            { brand: 'Google Chrome', version: '120.0.6099.291' }
+          ],
+          fullVersion: '120.0.6099.291',
+          platform: 'Windows',
+          platformVersion: '10.0.0',
+          architecture: 'x86',
+          bitness: '64',
+          model: '',
+          mobile: false,
+          wow64: false
+        }
+      })
+      .catch((error) => console.error('[Main] Failed to apply Grok UA override:', error))
+  }
+
+  // 首次导航前renderer可能尚未创建，did-navigate时补发
+  applyUserAgentOverride()
+  webContents.on('did-navigate', applyUserAgentOverride)
+  console.log('[Main] Applied Grok UA to webview guest')
+})
 
 /**
  * 应用管理器实例

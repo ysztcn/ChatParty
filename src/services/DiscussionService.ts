@@ -182,97 +182,57 @@ export class DiscussionService {
    * 等待模型回答完成并提取内容
    *
    * 策略：
-   * 1. 先等待AI开始回答（8秒初始延迟）
-   * 2. 轮询检查AI状态（通过StatusMonitor）
-   * 3. AI回答完成后，提取内容
-   * 4. 如果状态检测不可用，则轮询尝试提取内容
+   * 1. 等待模型开始生成回答（初始延迟）
+   * 2. 轮询提取回答内容
+   * 3. 内容连续多次无变化时判定回答完成，返回内容
    */
   private async waitForResponse(provider: AIProvider): Promise<string> {
     const timeout = 120000 // 120秒总超时
     const startTime = Date.now()
+    const pollInterval = 3000 // 每3秒提取一次
+    const initialDelay = 5000 // 等待模型开始生成回答
 
     // 阶段1：等待AI开始回答（给WebView处理时间）
     console.log(`[Discussion] 等待 ${provider.name} 开始回答...`)
-    await this.delay(8000)
+    await this.delay(initialDelay)
 
-    // 阶段2：轮询等待AI回答完成
-    console.log(`[Discussion] 开始轮询 ${provider.name} 的回答状态...`)
-    let aiCompleted = false
-    const statusCheckInterval = 3000 // 每3秒检查一次状态
+    // 阶段2：轮询提取回答内容，检测内容稳定后返回
+    console.log(`[Discussion] 开始轮询从 ${provider.name} 提取回答内容...`)
+    let lastContent = ''
+    let stableCount = 0
 
     while (Date.now() - startTime < timeout) {
       if (this.abortFlag) return ''
 
-      // 尝试通过状态监控检测AI是否完成回答
-      const statusResult = await this.checkAIStatus(provider)
-      console.log(`[Discussion] ${provider.name} 状态: ${statusResult}`)
+      const content = await this.extractResponse(provider)
 
-      if (statusResult === 'ai_completed' || statusResult === 'waiting_input') {
-        aiCompleted = true
-        break
+      if (content) {
+        if (content === lastContent) {
+          stableCount += 1
+          if (stableCount >= 2) {
+            console.log(`[Discussion] ${provider.name} 回答已稳定 (${content.length} 字)`)
+            return content
+          }
+        } else {
+          stableCount = 0
+          lastContent = content
+        }
       }
 
-      await this.delay(statusCheckInterval)
+      await this.delay(pollInterval)
     }
 
-    if (!aiCompleted && !this.abortFlag) {
-      console.warn(`[Discussion] ${provider.name} 状态检测超时，尝试直接提取内容`)
+    if (!this.abortFlag) {
+      console.warn(`[Discussion] ${provider.name} 回答等待超时`)
     }
 
-    // 阶段3：AI回答完成，提取内容
-    console.log(`[Discussion] 尝试从 ${provider.name} 提取回答内容...`)
-    const content = await this.extractResponse(provider)
-
-    if (content) {
-      console.log(`[Discussion] 从 ${provider.name} 提取到回答 (${content.length} 字)`)
-      return content
-    }
-
-    // 阶段4：如果首次提取失败，多次重试
-    for (let attempt = 0; attempt < 3; attempt++) {
-      if (this.abortFlag) return ''
-
-      console.log(`[Discussion] 重试提取 ${provider.name} 的回答 (${attempt + 1}/3)...`)
-      await this.delay(3000)
-
-      const retryContent = await this.extractResponse(provider)
-      if (retryContent) {
-        console.log(`[Discussion] 重试成功，从 ${provider.name} 提取到回答 (${retryContent.length} 字)`)
-        return retryContent
-      }
+    if (lastContent) {
+      console.log(`[Discussion] 超时后返回 ${provider.name} 的部分内容 (${lastContent.length} 字)`)
+      return lastContent
     }
 
     console.warn(`[Discussion] 从 ${provider.name} 提取回答失败`)
     return '[内容提取失败，请查看该模型的对话窗口]'
-  }
-
-  /**
-   * 检查AI状态
-   * 通过执行状态监控脚本检测AI是否完成回答
-   */
-  private async checkAIStatus(provider: AIProvider): Promise<string> {
-    try {
-      if (!window.electronAPI) return 'unknown'
-
-      // 使用StatusMonitor脚本检测状态
-      const { getStatusMonitorScript } = await import('../utils/StatusMonitorScripts')
-      const script = getStatusMonitorScript(provider.id)
-      if (!script) return 'unknown'
-
-      const result = await window.electronAPI.executeScriptInWebView(provider.webviewId, script)
-
-      if (typeof result === 'string') {
-        return result
-      }
-      if (result && typeof result === 'object') {
-        return result.result || result.status || 'unknown'
-      }
-
-      return 'unknown'
-    } catch (error) {
-      // 状态检测失败不影响主流程
-      return 'unknown'
-    }
   }
 
   /**

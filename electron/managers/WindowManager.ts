@@ -9,7 +9,6 @@ import {
 import { join } from 'path'
 import { EventEmitter } from 'events'
 
-app.commandLine.appendSwitch('remote-debugging-port', '9222')
 /**
  * 窗口配置接口
  */

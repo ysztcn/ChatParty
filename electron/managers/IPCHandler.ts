@@ -4,7 +4,7 @@
  */
 
 import {
-  ipcMain, IpcMainEvent, IpcMainInvokeEvent, app, dialog
+  ipcMain, IpcMainEvent, IpcMainInvokeEvent, app, dialog, shell
 } from 'electron'
 import { EventEmitter } from 'events'
 import { join, basename, extname } from 'path'
@@ -123,6 +123,7 @@ export class IPCHandler extends EventEmitter {
     ipcMain.handle('refresh-all-webviews', () => this.handleRefreshAllWebViews())
     ipcMain.handle('load-webview', (_event, data) => this.handleLoadWebView(data))
     ipcMain.handle('open-devtools', (_event, webviewId) => this.handleOpenDevTools(webviewId))
+    ipcMain.handle('open-external', (_event, url: string) => this.handleOpenExternal(url))
 
     // 应用控制
     this.handleInvoke(IPCChannel.APP_READY, this.handleAppReady.bind(this))
@@ -427,6 +428,17 @@ export class IPCHandler extends EventEmitter {
       nodeVersion: process.versions.node,
       electronVersion: process.versions.electron || 'Unknown'
     }
+  }
+
+  /**
+   * 用系统默认浏览器打开外部链接
+   */
+  private async handleOpenExternal(url: string): Promise<void> {
+    const { protocol } = new URL(url)
+    if (protocol !== 'http:' && protocol !== 'https:') {
+      throw new Error(`Unsupported protocol: ${protocol}`)
+    }
+    await shell.openExternal(url)
   }
 
   /**

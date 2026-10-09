@@ -21,13 +21,15 @@ export function getLoginCheckScript(providerId: string): string {
       document.querySelector("[class='user-name']").innerText != '登录')
     `,
     grok: `
-      // 检查grok的登录状态
-      !document.querySelector('[href="/sign-in"]')
+      // 检查grok的登录状态: 未登录时页面存在 Sign in / Sign up 入口
+      !(document.querySelector('a[href^="/sign-in"]') || document.querySelector('a[href^="/sign-up"]'))
     `,
     deepseek: `
-      // 检查DeepSeek的登录状态
-      !(document.querySelector('.ds-sign-up-form__register-button') && 
-      document.querySelector('.ds-sign-up-form__register-button').textContent.trim() === '登录')
+      // 检查DeepSeek的登录状态: 未登录时存在 Log in / Sign up 登录入口
+      !Array.from(document.querySelectorAll('button, a')).some(el => {
+        const t = (el.textContent || '').trim();
+        return t === 'Log in' || t === 'Log In' || t === 'Sign up' || t === '登录' || t === '注册';
+      })
     `,
     doubao: `
       // 检查豆包的登录状态
@@ -44,8 +46,8 @@ export function getLoginCheckScript(providerId: string): string {
         })
     `,
     copilot: `
-      // 检查Copilot的登录状态
-      !(document.querySelector('[alt="Profile image"]'))
+      // 检查Copilot的登录状态: 未登录时存在 Sign in 入口
+      !(document.querySelector('[data-testid*="sign-in"], [class*="sign-in"], [class*="signin"], [aria-label*="Sign in"]'))
     `,
     glm: '!document.querySelector(".login-btn")',
     yuanbao: `
@@ -54,8 +56,11 @@ export function getLoginCheckScript(providerId: string): string {
       (document.querySelector('.agent-dialogue__tool__login').textContent === '登录'))
     `,
     miromind: `
-      !((document.querySelector('[class="ant-space-item"]')) &&   
-      (document.querySelector('[class="ant-space-item"]').innerText === '登录'))
+      // 检查miromind的登录状态: 未登录时存在 Sign in / Log in 入口
+      !Array.from(document.querySelectorAll('button, a')).some(el => {
+        const t = (el.textContent || '').trim();
+        return t === 'Sign in' || t === 'Sign In' || t === 'Log in' || t === 'Login';
+      })
     `,
     gemini: `
       !!document.querySelector('.gb_be')

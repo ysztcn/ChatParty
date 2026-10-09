@@ -114,10 +114,19 @@ function getKimiLastMessageScript(): string {
   return `(() => {
     ${htmlToMarkdownHelper}
     ${visibilityHelper}
-    const messages = document.querySelectorAll('.segment-content');
-    const lastMessage = __getLastVisibleMessage(messages);
-    if (!lastMessage) return '';
-    return htmlToMarkdown(lastMessage);
+    const selectors = [
+      '.segment-content',
+      '[class*="markdown"]'
+    ];
+    for (const sel of selectors) {
+      const messages = document.querySelectorAll(sel);
+      if (messages.length === 0) continue;
+      const lastMessage = __getLastVisibleMessage(messages);
+      if (!lastMessage) continue;
+      const text = htmlToMarkdown(lastMessage).trim();
+      if (text.length > 10) return text;
+    }
+    return '';
   })()`
 }
 
@@ -125,10 +134,19 @@ function getGrokLastMessageScript(): string {
   return `(() => {
     ${htmlToMarkdownHelper}
     ${visibilityHelper}
-    const messages = document.querySelectorAll('.response-content-markdown');
-    const lastMessage = __getLastVisibleMessage(messages);
-    if (!lastMessage) return '';
-    return htmlToMarkdown(lastMessage);
+    const selectors = [
+      '.response-content-markdown',
+      '[class*="markdown"]'
+    ];
+    for (const sel of selectors) {
+      const messages = document.querySelectorAll(sel);
+      if (messages.length === 0) continue;
+      const lastMessage = __getLastVisibleMessage(messages);
+      if (!lastMessage) continue;
+      const text = htmlToMarkdown(lastMessage).trim();
+      if (text.length > 10) return text;
+    }
+    return '';
   })()`
 }
 
@@ -136,10 +154,19 @@ function getDeepSeekLastMessageScript(): string {
   return `(() => {
     ${htmlToMarkdownHelper}
     ${visibilityHelper}
-    const messages = document.querySelectorAll('.ds-markdown');
-    const lastMessage = __getLastVisibleMessage(messages);
-    if (!lastMessage) return '';
-    return htmlToMarkdown(lastMessage);
+    const selectors = [
+      '.ds-markdown',
+      '[class*="markdown"]'
+    ];
+    for (const sel of selectors) {
+      const messages = document.querySelectorAll(sel);
+      if (messages.length === 0) continue;
+      const lastMessage = __getLastVisibleMessage(messages);
+      if (!lastMessage) continue;
+      const text = htmlToMarkdown(lastMessage).trim();
+      if (text.length > 10) return text;
+    }
+    return '';
   })()`
 }
 
@@ -276,6 +303,9 @@ function getQwenLastMessageScript(): string {
     ${htmlToMarkdownHelper}
     ${visibilityHelper}
     const selectors = [
+      '.qk-markdown',
+      '.qk-markdown-react',
+      '[class*="qk-markdown"]',
       '.markdown-body',
       '[class*="answer-content"]',
       '[class*="response-content"]',
@@ -284,10 +314,11 @@ function getQwenLastMessageScript(): string {
     ];
     for (const sel of selectors) {
       const messages = document.querySelectorAll(sel);
-      if (messages.length > 0) {
-        const lastMessage = __getLastVisibleMessage(messages);
-        if (lastMessage) return htmlToMarkdown(lastMessage);
-      }
+      if (messages.length === 0) continue;
+      const lastMessage = __getLastVisibleMessage(messages);
+      if (!lastMessage) continue;
+      const text = htmlToMarkdown(lastMessage).trim();
+      if (text.length > 10) return text;
     }
     return '';
   })()`
@@ -302,14 +333,16 @@ function getCopilotLastMessageScript(): string {
       '[class*="response-content"]',
       '[class*="answer-content"]',
       '.markdown-body',
-      '[class*="chat-message"]'
+      '[class*="chat-message"]',
+      '[class*="markdown"]'
     ];
     for (const sel of selectors) {
       const messages = document.querySelectorAll(sel);
-      if (messages.length > 0) {
-        const lastMessage = __getLastVisibleMessage(messages);
-        if (lastMessage) return htmlToMarkdown(lastMessage);
-      }
+      if (messages.length === 0) continue;
+      const lastMessage = __getLastVisibleMessage(messages);
+      if (!lastMessage) continue;
+      const text = htmlToMarkdown(lastMessage).trim();
+      if (text.length > 10) return text;
     }
     return '';
   })()`
@@ -319,10 +352,19 @@ function getGLMLastMessageScript(): string {
   return `(() => {
     ${htmlToMarkdownHelper}
     ${visibilityHelper}
-    const messages = document.querySelectorAll('.answer-content-wrap');
-    const lastMessage = __getLastVisibleMessage(messages);
-    if (!lastMessage) return '';
-    return htmlToMarkdown(lastMessage);
+    const selectors = [
+      '.answer-content-wrap',
+      '[class*="markdown"]'
+    ];
+    for (const sel of selectors) {
+      const messages = document.querySelectorAll(sel);
+      if (messages.length === 0) continue;
+      const lastMessage = __getLastVisibleMessage(messages);
+      if (!lastMessage) continue;
+      const text = htmlToMarkdown(lastMessage).trim();
+      if (text.length > 10) return text;
+    }
+    return '';
   })()`
 }
 
@@ -330,10 +372,19 @@ function getYuanBaoLastMessageScript(): string {
   return `(() => {
     ${htmlToMarkdownHelper}
     ${visibilityHelper}
-    const messages = document.querySelectorAll('.agent-chat__list__item__content');
-    const lastMessage = __getLastVisibleMessage(messages);
-    if (!lastMessage) return '';
-    return htmlToMarkdown(lastMessage);
+    const selectors = [
+      '.agent-chat__list__item__content',
+      '[class*="markdown"]'
+    ];
+    for (const sel of selectors) {
+      const messages = document.querySelectorAll(sel);
+      if (messages.length === 0) continue;
+      const lastMessage = __getLastVisibleMessage(messages);
+      if (!lastMessage) continue;
+      const text = htmlToMarkdown(lastMessage).trim();
+      if (text.length > 10) return text;
+    }
+    return '';
   })()`
 }
 
@@ -341,10 +392,19 @@ function getMiromindLastMessageScript(): string {
   return `(() => {
     ${htmlToMarkdownHelper}
     ${visibilityHelper}
-    const messages = document.querySelectorAll('.report-container');
-    const lastMessage = __getLastVisibleMessage(messages);
-    if (!lastMessage) return '';
-    return htmlToMarkdown(lastMessage);
+    const selectors = [
+      '.report-container',
+      '[class*="markdown"]'
+    ];
+    for (const sel of selectors) {
+      const messages = document.querySelectorAll(sel);
+      if (messages.length === 0) continue;
+      const lastMessage = __getLastVisibleMessage(messages);
+      if (!lastMessage) continue;
+      const text = htmlToMarkdown(lastMessage).trim();
+      if (text.length > 10) return text;
+    }
+    return '';
   })()`
 }
 
@@ -358,14 +418,16 @@ function getGeminiLastMessageScript(): string {
       '[class*="response-container"]',
       '.markdown-main-panel',
       '[class*="message-content"]',
-      'model-response'
+      'model-response',
+      '[class*="markdown"]'
     ];
     for (const sel of selectors) {
       const messages = document.querySelectorAll(sel);
-      if (messages.length > 0) {
-        const lastMessage = __getLastVisibleMessage(messages);
-        if (lastMessage) return htmlToMarkdown(lastMessage);
-      }
+      if (messages.length === 0) continue;
+      const lastMessage = __getLastVisibleMessage(messages);
+      if (!lastMessage) continue;
+      const text = htmlToMarkdown(lastMessage).trim();
+      if (text.length > 10) return text;
     }
     return '';
   })()`
@@ -384,10 +446,11 @@ function getChatGPTLastMessageScript(): string {
     ];
     for (const sel of selectors) {
       const messages = document.querySelectorAll(sel);
-      if (messages.length > 0) {
-        const lastMessage = __getLastVisibleMessage(messages);
-        if (lastMessage) return htmlToMarkdown(lastMessage);
-      }
+      if (messages.length === 0) continue;
+      const lastMessage = __getLastVisibleMessage(messages);
+      if (!lastMessage) continue;
+      const text = htmlToMarkdown(lastMessage).trim();
+      if (text.length > 10) return text;
     }
     return '';
   })()`
@@ -397,9 +460,18 @@ function getMimoLastMessageScript(): string {
   return `(() => {
     ${htmlToMarkdownHelper}
     ${visibilityHelper}
-    const messages = document.querySelectorAll('.markdown-prose');
-    const lastMessage = __getLastVisibleMessage(messages);
-    if (!lastMessage) return '';
-    return htmlToMarkdown(lastMessage);
+    const selectors = [
+      '.markdown-prose',
+      '[class*="markdown"]'
+    ];
+    for (const sel of selectors) {
+      const messages = document.querySelectorAll(sel);
+      if (messages.length === 0) continue;
+      const lastMessage = __getLastVisibleMessage(messages);
+      if (!lastMessage) continue;
+      const text = htmlToMarkdown(lastMessage).trim();
+      if (text.length > 10) return text;
+    }
+    return '';
   })()`
 }

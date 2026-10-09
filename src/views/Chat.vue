@@ -66,7 +66,7 @@
 
 <script setup lang="ts">
 import {
-  computed, onMounted, onUnmounted, ref
+  computed, onMounted, onUnmounted, ref, watch
 } from 'vue'
 import type { CSSProperties } from 'vue'
 import { useChatStore, useLayoutStore } from '../stores'
@@ -278,6 +278,17 @@ const screenGroups = computed(() => {
   })
   return groups
 })
+
+// 同步卡片所属屏幕索引，卡片最大化时只在所属屏幕内展开
+watch(screenGroups, (groups) => {
+  const map: Record<string, number> = {}
+  groups.forEach((group, screenIndex) => {
+    group.forEach((provider) => {
+      map[provider.id] = screenIndex
+    })
+  })
+  layoutStore.setCardScreenIndexes(map)
+}, { immediate: true })
 
 /**
  * 单个屏幕网格样式

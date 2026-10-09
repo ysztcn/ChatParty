@@ -27,6 +27,9 @@ export const useLayoutStore = defineStore('layout', () => {
   // 是否显示布局网格
   const showGrid = ref(false)
 
+  // 卡片所属屏幕索引（多屏全屏时由视图层同步）
+  const cardScreenIndex = ref<Record<string, number>>({})
+
   // 显示布局（多屏全屏时的屏幕数量与位置）
   const displayLayout = ref<DisplayLayout>({
     fullScreenState: 0,
@@ -158,6 +161,52 @@ export const useLayoutStore = defineStore('layout', () => {
   }
 
   /**
+   * 计算卡片最大化目标矩形（多屏全屏时限制在卡片所属屏幕内）
+   * 屏幕坐标与多屏全屏窗口的视口坐标对齐（WindowManager.getDisplayLayout）
+   */
+  const getMaximizeRect = (providerId: string): { x: number; y: number; width: number; height: number } => {
+    const { fullScreenState, screenCount, screens } = displayLayout.value
+    const index = cardScreenIndex.value[providerId]
+    if (fullScreenState === 2 && screenCount > 1 && index !== undefined) {
+      const screen = screens[index]
+      if (screen) return screen
+    }
+    return {
+      x: 0,
+      y: 0,
+      width: windowSize.value.width,
+      height: windowSize.value.height
+    }
+  }
+
+  /**
+   * 应用最大化几何（位置与尺寸）
+   */
+  const applyMaximizeGeometry = (config: CardConfig): void => {
+    const rect = getMaximizeRect(config.providerId)
+    config.position = {
+      x: rect.x + 16,
+      y: rect.y + 16
+    }
+    config.size = {
+      width: rect.width - 32,
+      height: rect.height - 120
+    }
+  }
+
+  /**
+   * 同步卡片所属屏幕索引，并重新应用已最大化卡片的几何
+   */
+  const setCardScreenIndexes = (map: Record<string, number>): void => {
+    cardScreenIndex.value = map
+    Object.values(cardConfigs.value).forEach((config) => {
+      if (config.isMaximized) {
+        applyMaximizeGeometry(config)
+      }
+    })
+  }
+
+  /**
    * 最大化卡片
    */
   const maximizeCard = (providerId: string): void => {
@@ -172,15 +221,8 @@ export const useLayoutStore = defineStore('layout', () => {
       config.isMaximized = true
       config.isMinimized = false
 
-      // 设置最大化尺寸和位置
-      config.size = {
-        width: windowSize.value.width - 32, // 减去边距
-        height: windowSize.value.height - 120 // 减去头部和输入区域高度
-      }
-      config.position = {
-        x: 16, // 左边距
-        y: 16 // 上边距
-      }
+      // 设置最大化尺寸和位置（多屏全屏时只占卡片所属屏幕）
+      applyMaximizeGeometry(config)
       config.zIndex = 1000 // 设置最高z-index
 
       // 设置其他卡片为隐藏状态（但不销毁WebView）
@@ -242,6 +284,13 @@ export const useLayoutStore = defineStore('layout', () => {
    */
   const updateWindowSize = (width: number, height: number): void => {
     windowSize.value = { width, height }
+
+    // 已最大化的卡片跟随新窗口尺寸重新计算几何
+    Object.values(cardConfigs.value).forEach((config) => {
+      if (config.isMaximized) {
+        applyMaximizeGeometry(config)
+      }
+    })
 
     recalculateLayout()
   }
@@ -392,6 +441,7 @@ export const useLayoutStore = defineStore('layout', () => {
 
   return {
     cardConfigs,
+    cardScreenIndex,
     displayLayout,
     isMultiScreenFullScreen,
     primaryScreen,
@@ -419,6 +469,7 @@ export const useLayoutStore = defineStore('layout', () => {
     getCardConfig,
     updateCardTitle,
     updateDisplayLayout,
+    setCardScreenIndexes,
     getPerScreenCardCounts
   }
 })

@@ -10,6 +10,9 @@ import { app } from 'electron'
 import { EventEmitter } from 'events'
 import * as crypto from 'crypto'
 
+// Grok会话统一UA：与主进程web-contents-created钩子、renderer注入保持一致
+export const GROK_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+
 /**
  * 会话数据接口
  */
@@ -180,6 +183,11 @@ export class SessionManager extends EventEmitter {
       this.configureGeminiSession(electronSession)
     }
 
+    // 针对Grok的配置：修正UA与Client Hints品牌不一致（会被Cloudflare Turnstile判定为自动化环境）
+    if (providerId === 'grok') {
+      this.configureGrokSession(electronSession)
+    }
+
     // 设置权限处理
     electronSession.setPermissionRequestHandler((_webContents, permission, callback) => {
       // 允许必要的权限
@@ -313,13 +321,60 @@ export class SessionManager extends EventEmitter {
   }
 
   /**
+   * 配置Grok会话请求头
+   * UA声称Chrome但Client Hints缺少Google Chrome品牌会被Cloudflare判定为自动化环境
+   */
+  private configureGrokSession(electronSession: Session): void {
+    const userAgent = this.getUserAgent('grok') || ''
+    const secChUa = '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"'
+    const secChUaFullVersionList = '"Not_A Brand";v="8.0.0.0", "Chromium";v="120.0.6099.291", "Google Chrome";v="120.0.6099.291"'
+
+    electronSession.webRequest.onBeforeSendHeaders(
+      {
+        urls: [
+          '*://grok.com/*',
+          '*://*.grok.com/*',
+          '*://x.ai/*',
+          '*://*.x.ai/*',
+          '*://challenges.cloudflare.com/*',
+          '*://*.cloudflareclient.net/*'
+        ]
+      },
+      (details, callback) => {
+        // 大小写不敏感地覆盖既有头，避免键名不一致导致重复头
+        const setHeader = (name: string, value: string): void => {
+          const existing = Object.keys(details.requestHeaders).find((key) => key.toLowerCase() === name.toLowerCase())
+          details.requestHeaders[existing || name] = value
+        }
+        const hasHeader = (name: string): boolean =>
+          Object.keys(details.requestHeaders).some((key) => key.toLowerCase() === name.toLowerCase())
+
+        setHeader('User-Agent', userAgent)
+        setHeader('Sec-Ch-Ua', secChUa)
+        setHeader('Sec-Ch-Ua-Mobile', '?0')
+        setHeader('Sec-Ch-Ua-Platform', '"Windows"')
+
+        // 仅覆盖请求原本携带的扩展头，避免发送浏览器默认不会发送的头
+        if (hasHeader('sec-ch-ua-full-version-list')) {
+          setHeader('Sec-Ch-Ua-Full-Version-List', secChUaFullVersionList)
+        }
+
+        callback({ requestHeaders: details.requestHeaders })
+      }
+    )
+
+    console.log('[SessionManager] Grok session configured successfully')
+  }
+
+  /**
    * 获取用户代理字符串
    * 针对Gemini使用更完善的UA伪装，包含Windows Chrome的完整标识
    */
   private getUserAgent(providerId: string): string | undefined {
     const userAgents: Record<string, string> = {
       kimi: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
-      grok: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
+      // Grok/Cloudflare要求会话内UA一致，须与webview实际UA（Windows Chrome/120）保持相同
+      grok: GROK_USER_AGENT,
       deepseek: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
       doubao: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
       qwen: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',

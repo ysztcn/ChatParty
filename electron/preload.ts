@@ -29,6 +29,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     { webviewId, url }
   ),
   openDevTools: (webviewId: string) => ipcRenderer.invoke('open-devtools', webviewId),
+  openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
 
   // 应用控制
   appReady: () => ipcRenderer.invoke(IPCChannel.APP_READY),
