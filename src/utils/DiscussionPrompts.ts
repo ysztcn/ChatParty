@@ -94,20 +94,3 @@ export function generateDiscussionPrompt(
     .replace('{originalQuery}', originalQuery)
     .replace('{previousDiscussion}', previousDiscussion)
 }
-
-/**
- * 获取所有讨论模板
- */
-export function getDiscussionTemplates() {
-  return [
-    {
-      id: 'sequential', name: '顺序讨论', template: SEQUENTIAL_DISCUSSION_TEMPLATE, description: '模型依次基于前一个模型的回答继续讨论'
-    },
-    {
-      id: 'debate', name: '辩论模式', template: DEBATE_DISCUSSION_TEMPLATE, description: '模型间进行正反方辩论'
-    },
-    {
-      id: 'round-robin', name: '圆桌讨论', template: ROUND_ROBIN_DISCUSSION_TEMPLATE, description: '平等参与，各抒己见'
-    }
-  ]
-}

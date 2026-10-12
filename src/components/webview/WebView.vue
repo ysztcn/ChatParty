@@ -508,6 +508,7 @@ const sendMessage = async(message: string): Promise<void> => {
  * 销毁WebView
  */
 const destroy = (): void => {
+  console.log(`[WebView] destroy ${props.provider.name} at ${new Date().toISOString()}`)
   // 清除定时器
   if (saveSessionTimer.value) {
     clearInterval(saveSessionTimer.value)

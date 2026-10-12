@@ -14,39 +14,23 @@
         />
       </div>
 
-      <!-- AI卡片网格 -->
+      <!-- AI卡片网格：单屏 grid / 多屏绝对定位，共用同一批卡片避免切换时重建 -->
       <div
-        v-if="isMultiScreen"
-        class="cards-grid-multi"
+        :class="isMultiScreen ? 'cards-grid-multi' : 'cards-grid'"
+        :style="isMultiScreen ? undefined : gridStyle"
       >
         <div
-          v-for="(group, index) in screenGroups"
-          :key="index"
-          class="screen-grid"
-          :style="getScreenGridStyle(index, group.length)"
+          v-for="provider in visibleProviders"
+          :key="provider.id"
+          :style="isMultiScreen ? getMultiScreenCardStyle(provider.id) : undefined"
+          class="card-slot"
         >
           <AICard
-            v-for="provider in group"
-            :key="provider.id"
             :provider="provider"
             :config="getCardConfig(provider.id)"
             class="card-item"
           />
         </div>
-      </div>
-      <div
-        v-else
-        class="cards-grid"
-        :style="gridStyle"
-      >
-        <!-- 普通AI卡片 -->
-        <AICard
-          v-for="provider in visibleProviders"
-          :key="provider.id"
-          :provider="provider"
-          :config="getCardConfig(provider.id)"
-          class="card-item"
-        />
       </div>
     </div>
 
@@ -265,14 +249,44 @@ const inputSectionStyle = computed(() => {
 })
 
 /**
+ * 多屏全屏时各屏分配到的卡片数量
+ * 按顺序填满各屏：每屏容量 = 列数 × 该屏高度可容纳的行数（行高至少 minCardHeight），
+ * 第 1 屏放满再放第 2 屏，超出总容量的卡片压缩行高放进最后一屏，保证全部显示
+ */
+const perScreenCounts = computed<number[]>(() => {
+  if (!isMultiScreen.value) return [visibleProviders.value.length]
+  const { screens, primaryIndex } = layoutStore.displayLayout
+  const {
+    columns, gap, minCardHeight
+  } = layoutStore.gridSettings
+  let remaining = visibleProviders.value.length
+  const counts = screens.map((screen, i) => {
+    const isLast = i === screens.length - 1
+    if (isLast) {
+      const count = remaining
+      remaining = 0
+      return count
+    }
+    const isPrimary = i === primaryIndex
+    const topOffset = isPrimary ? 60 + inputHeight.value : 0
+    const bottomOffset = isPrimary ? 32 : 0
+    const avail = Math.max(0, screen.height - topOffset - bottomOffset - gap * 2)
+    const maxRows = Math.max(1, Math.floor((avail + gap) / (minCardHeight + gap)))
+    const count = Math.min(remaining, columns * maxRows)
+    remaining -= count
+    return count
+  })
+  return counts
+})
+
+/**
  * 多屏时按屏幕分组的卡片列表
  */
 const screenGroups = computed(() => {
   if (!isMultiScreen.value) return []
-  const counts = layoutStore.getPerScreenCardCounts(visibleProviders.value.length)
   const groups: AIProvider[][] = []
   let offset = 0
-  counts.forEach((count) => {
+  perScreenCounts.value.forEach((count) => {
     groups.push(visibleProviders.value.slice(offset, offset + count))
     offset += count
   })
@@ -291,28 +305,52 @@ watch(screenGroups, (groups) => {
 }, { immediate: true })
 
 /**
- * 单个屏幕网格样式
+ * 多屏全屏下单张卡片的位置样式
+ * 坐标系对齐窗口视口（容器为 fixed 铺满视口），screen.x/screen.y 即物理屏幕位置
  */
-const getScreenGridStyle = (index: number, cardCount: number) => {
-  const { screens } = layoutStore.displayLayout
-  const screen = screens[index] || { x: 0, width: 0 }
-  const columns = Math.max(1, Math.min(layoutStore.gridSettings.columns, cardCount))
-  const rows = Math.ceil(cardCount / columns)
-  const { gap, minCardHeight } = layoutStore.gridSettings
-  const isPrimary = index === layoutStore.displayLayout.primaryIndex
+const getMultiScreenCardStyle = (providerId: string): CSSProperties => {
+  const { screens, primaryIndex } = layoutStore.displayLayout
+  const { columns, gap } = layoutStore.gridSettings
+  const counts = perScreenCounts.value
+
+  const globalIndex = visibleProviders.value.findIndex((p) => p.id === providerId)
+  if (globalIndex < 0) return {}
+
+  let screenIndex = 0
+  let localIndex = globalIndex
+  for (let i = 0; i < counts.length; i++) {
+    if (localIndex < counts[i]) {
+      screenIndex = i
+      break
+    }
+    localIndex -= counts[i]
+  }
+
+  const screen = screens[screenIndex] || {
+    x: 0, y: 0, width: 0, height: 0
+  }
+  const cardCount = Math.max(1, counts[screenIndex] ?? 1)
+  const gridCols = Math.max(1, columns)
+  const rows = Math.max(1, Math.ceil(cardCount / gridCols))
+  const col = localIndex % gridCols
+  const row = Math.floor(localIndex / gridCols)
+  const isPrimary = screenIndex === primaryIndex
+  // 主屏顶部让出 header 与输入区，底部让出状态栏
   const topOffset = isPrimary ? 60 + inputHeight.value : 0
+  const bottomOffset = isPrimary ? 32 : 0
+
+  const pad = gap
+  const cellWidth = (screen.width - pad * 2 - gap * (gridCols - 1)) / gridCols
+  const availHeight = Math.max(0, screen.height - topOffset - bottomOffset - pad * 2)
+  // 卡片数超出该屏容量时行高自动压缩（低于 minCardHeight），保证全部卡片可见
+  const cellHeight = Math.max(0, (availHeight - gap * (rows - 1)) / rows)
+
   return {
-    position: 'absolute' as const,
-    left: `${screen.x}px`,
-    top: `${topOffset}px`,
-    width: `${screen.width}px`,
-    height: isPrimary ? `calc(100% - ${topOffset}px)` : '100%',
-    display: 'grid',
-    gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-    gridTemplateRows: `repeat(${rows}, minmax(${minCardHeight}px, 1fr))`,
-    gap: `${gap}px`,
-    padding: `${gap}px`,
-    boxSizing: 'border-box' as const
+    position: 'absolute',
+    left: `${screen.x + pad + col * (cellWidth + gap)}px`,
+    top: `${screen.y + topOffset + pad + row * (cellHeight + gap)}px`,
+    width: `${cellWidth}px`,
+    height: `${cellHeight}px`
   }
 }
 
@@ -321,9 +359,15 @@ const getScreenGridStyle = (index: number, cardCount: number) => {
  */
 const getCardConfig = (providerId: string) => layoutStore.getCardConfig(providerId)
 
-// 响应式布局处理
+// 响应式布局处理（拖拽窗口时 resize 会每帧触发，做防抖避免频繁重算布局与写盘）
+let resizeTimer: ReturnType<typeof setTimeout> | null = null
 const handleResize = () => {
-  layoutStore.updateWindowSize(window.innerWidth, window.innerHeight)
+  if (resizeTimer) {
+    clearTimeout(resizeTimer)
+  }
+  resizeTimer = setTimeout(() => {
+    layoutStore.updateWindowSize(window.innerWidth, window.innerHeight)
+  }, 150)
 }
 
 // 键盘事件处理
@@ -414,6 +458,12 @@ onUnmounted(() => {
   // 移除窗口大小变化监听器
   window.removeEventListener('resize', handleResize)
 
+  // 清理防抖计时器
+  if (resizeTimer) {
+    clearTimeout(resizeTimer)
+    resizeTimer = null
+  }
+
   // 移除键盘事件监听
   window.removeEventListener('keydown', handleKeyDown)
 
@@ -458,15 +508,18 @@ onUnmounted(() => {
 }
 
 .cards-grid-multi {
-  flex: 1 1 auto;
-  min-height: 0;
-  position: relative;
+  /* 铺满整个视口，使卡片绝对定位坐标与窗口/屏幕坐标系一致（窗口 frame: false） */
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
   overflow: hidden;
 }
 
-.screen-grid {
-  overflow-y: auto;
-  overflow-x: hidden;
+.card-slot {
+  min-width: 0;
+  min-height: 0;
 }
 
 .card-item {

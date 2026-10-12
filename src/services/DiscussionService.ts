@@ -12,7 +12,7 @@
 
 import type { AIProvider } from '../types'
 import type { DiscussionUtterance, DiscussionMode } from '../types/discussion'
-import { getSendMessageScript } from '../utils/GetLLMLastMessage'
+import { getLastMessageScript } from '../utils/GetLLMLastMessage'
 import { generateDiscussionPrompt } from '../utils/DiscussionPrompts'
 import { useDiscussionStore } from '../stores/discussion'
 import { ElMessage } from 'element-plus'
@@ -242,7 +242,7 @@ export class DiscussionService {
     try {
       if (!window.electronAPI) return ''
 
-      const script = getSendMessageScript(provider.id)
+      const script = getLastMessageScript(provider.id)
       if (!script) {
         console.warn(`[Discussion] ${provider.name} 没有内容提取脚本`)
         return ''

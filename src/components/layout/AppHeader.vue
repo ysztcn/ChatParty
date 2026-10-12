@@ -70,6 +70,49 @@
         @click="toggleTheme"
       />
 
+      <!-- 输入框折叠控制（仅对话页显示） -->
+      <div
+        v-if="isChatRoute"
+        class="input-collapse-buttons"
+      >
+        <el-tooltip
+          :content="layoutStore.inputAgentCollapsed ? '展开智能体与技能' : '收起智能体与技能'"
+          placement="bottom"
+        >
+          <el-button
+            :icon="MagicStick"
+            :type="layoutStore.inputAgentCollapsed ? 'default' : 'primary'"
+            circle
+            size="small"
+            @click="layoutStore.toggleInputAgent"
+          />
+        </el-tooltip>
+        <el-tooltip
+          :content="layoutStore.inputModelCollapsed ? '展开模型选择' : '收起模型选择'"
+          placement="bottom"
+        >
+          <el-button
+            :icon="Operation"
+            :type="layoutStore.inputModelCollapsed ? 'default' : 'primary'"
+            circle
+            size="small"
+            @click="layoutStore.toggleInputModel"
+          />
+        </el-tooltip>
+        <el-tooltip
+          :content="layoutStore.inputContentCollapsed ? '展开输入区' : '收起输入区'"
+          placement="bottom"
+        >
+          <el-button
+            :icon="EditPen"
+            :type="layoutStore.inputContentCollapsed ? 'default' : 'primary'"
+            circle
+            size="small"
+            @click="layoutStore.toggleInputContent"
+          />
+        </el-tooltip>
+      </div>
+
       <!-- 窗口控制按钮 -->
       <div class="window-controls">
         <el-button
@@ -107,7 +150,10 @@ import {
   Moon,
   Minus,
   Close,
-  FullScreen
+  FullScreen,
+  MagicStick,
+  Operation,
+  EditPen
 } from '@element-plus/icons-vue'
 import { useAppStore, useChatStore, useLayoutStore } from '../../stores'
 
@@ -119,6 +165,7 @@ const layoutStore = useLayoutStore()
 
 // 计算属性
 const activeRoute = computed(() => route.path)
+const isChatRoute = computed(() => route.path === '/chat')
 const isDarkMode = computed(() => appStore.isDarkMode)
 const loggedInCount = computed(() => chatStore.loggedInCount)
 const totalProviders = computed(() => chatStore.totalProviders)
@@ -315,6 +362,15 @@ const toggleFullScreen = async(): Promise<void> => {
 
 .theme-toggle {
   margin-left: 8px;
+}
+
+.input-collapse-buttons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 4px;
+  padding-left: 8px;
+  border-left: 1px solid var(--el-border-color-lighter);
 }
 
 .window-controls {

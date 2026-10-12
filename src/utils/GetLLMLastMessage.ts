@@ -89,7 +89,7 @@ const visibilityHelper = `
   }
 `
 
-export function getSendMessageScript(providerId: string): string {
+export function getLastMessageScript(providerId: string): string {
   const scripts: Record<string, () => string> = {
     kimi: () => getKimiLastMessageScript(),
     grok: () => getGrokLastMessageScript(),

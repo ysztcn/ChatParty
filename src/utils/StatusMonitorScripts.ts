@@ -418,30 +418,3 @@ function getChatGPTStatusMonitorScript(providerId: string): string {
 function getMimoStatusMonitorScript(providerId: string): string {
   return getGenericStatusMonitorScript(providerId, '#message-list')
 }
-
-/**
- * 获取所有支持的AI提供商列表
- */
-export function getSupportedProviders(): string[] {
-  return [
-    'doubao',
-    'kimi',
-    'grok',
-    'deepseek',
-    'qwen',
-    'copilot',
-    'glm',
-    'yuanbao',
-    'miromind',
-    'gemini',
-    'chatgpt',
-    'mimo'
-  ]
-}
-
-/**
- * 检查是否支持指定的AI提供商
- */
-export function isProviderSupported(providerId: string): boolean {
-  return getSupportedProviders().includes(providerId)
-}

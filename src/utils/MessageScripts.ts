@@ -840,17 +840,3 @@ function getChatGPTScript(escapedMessage: string, chatInputSelector: string = '[
 function getMimoScript(escapedMessage: string): string {
   return getDeepSeekScript(escapedMessage)
 }
-
-/**
- * 获取所有支持的提供商列表
- */
-export function getSupportedProviders(): string[] {
-  return ['kimi', 'grok', 'deepseek', 'doubao', 'qwen', 'copilot', 'glm', 'yuanbao', 'miromind', 'gemini', 'chatgpt', 'mimo']
-}
-
-/**
- * 检查提供商是否支持
- */
-export function isProviderSupported(providerId: string): boolean {
-  return getSupportedProviders().includes(providerId)
-}

@@ -104,25 +104,27 @@ function getKimiNewChatScript(): string {
 
 /**
  * yuanbao新建对话脚本
+ * 选择器依据 OpenCLI yuanbao adapter（clis/yuanbao/new.js）
  */
 function getYuanBaoNewChatScript(): string {
   return `
     (function() {
-      // 精准查找腾讯元宝新建对话按钮
-      const newChatButtons = document.querySelectorAll('.yb-common-nav__trigger');
-      
-      for (let button of newChatButtons) {
-        // 验证是否包含新建对话图标
-        const hasNewChatIcon = button.querySelector('.yb-icon.icon-yb-ic_newchat_20');
-        if (hasNewChatIcon) {
-          button.click();
-          console.log('已点击新建对话按钮');
-          return true;
-        }
+      function isVisible(el) {
+        const rect = el.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
       }
-      
-      console.log('未找到新建对话按钮');
-      return false;
+
+      const trigger = document.querySelector('.yb-common-nav__trigger[data-desc="new-chat"]');
+      if (trigger && isVisible(trigger)) {
+        trigger.click();
+        console.log('已点击元宝新建对话按钮');
+        return true;
+      }
+
+      // 未找到按钮（改版失效）时回退导航到首页，首页即空白新对话
+      console.log('未找到元宝新建对话按钮，回退导航到首页');
+      window.location.href = 'https://yuanbao.tencent.com/chat';
+      return true;
     })()
   `
 }
@@ -266,133 +268,55 @@ function getDouBaoNewChatScript(): string {
 }
 
 /**
- * qwen新建对话脚本
+ * qwen（千问 qianwen.com）新建对话脚本
+ * 依次尝试 aria-label/title、文本匹配，均失败时回退导航到首页（首页即空白新对话）
  */
 function getQwenNewChatScript(): string {
   return `
     (function() {
       try {
-        console.log('开始执行Qwen新建对话脚本...');
-        
-        // 方法1: 直接查找并点击新对话按钮
-        console.log('尝试查找新对话按钮...');
-        
-        // 查找包含"新对话"文本的元素
-        const findNewChatButton = () => {
-          // 遍历所有元素，寻找包含"新对话"文本的元素
-          const elements = document.querySelectorAll('*');
-          for (const element of elements) {
-            if (element.textContent && element.textContent.trim() === '新对话') {
-              return element;
-            }
-          }
-          return null;
-        };
-        
-        const newChatTextElement = findNewChatButton();
-        if (newChatTextElement) {
-          console.log('找到包含"新对话"文本的元素:', newChatTextElement);
-          
-          // 查找它的父级按钮
-          let button = newChatTextElement.closest('button');
-          if (button) {
-            console.log('找到新对话按钮:', button);
-            
-            // 模拟真实的点击事件
-            const clickEvent = new MouseEvent('click', {
-              bubbles: true,
-              cancelable: true,
-              view: window,
-              button: 0,
-              clientX: button.getBoundingClientRect().left + 10,
-              clientY: button.getBoundingClientRect().top + 10,
-              composed: true,
-              detail: 1
-            });
-            
-            button.dispatchEvent(clickEvent);
-            console.log('已发送点击事件到新对话按钮');
-            return true;
-          }
+        const CANDIDATES = ['新对话', '新建对话'];
+
+        function isVisible(el) {
+          const rect = el.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0;
         }
-        
-        // 方法2: 如果找不到按钮，尝试使用XPath查找
-        console.log('尝试使用XPath查找新对话按钮...');
-        const xpathResult = document.evaluate(
-          "//*[contains(text(), '新对话')]",
-          document,
-          null,
-          XPathResult.ANY_TYPE,
-          null
+
+        // 方法1: aria-label / title 语义匹配
+        const semantic = document.querySelector(
+          '[aria-label="新对话"], [aria-label="新建对话"], [title="新对话"], [title="新建对话"]'
         );
-        
-        let node = xpathResult.iterateNext();
+        if (semantic && isVisible(semantic)) {
+          semantic.click();
+          console.log('已通过 aria-label 点击千问新建对话按钮');
+          return true;
+        }
+
+        // 方法2: 查找精确文本节点，向上找可点击祖先（button/[role=button]/a），找不到则点击文本元素本身（事件冒泡）
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+        let node = walker.nextNode();
         while (node) {
-          console.log('通过XPath找到元素:', node);
-          
-          if (node.tagName === 'BUTTON') {
-            node.click();
-            console.log('已点击新对话按钮');
-            return true;
-          } else {
-            const parentButton = node.closest('button');
-            if (parentButton) {
-              parentButton.click();
-              console.log('已点击新对话按钮的父按钮');
-              return true;
+          const text = (node.textContent || '').trim();
+          if (CANDIDATES.includes(text)) {
+            const el = node.parentElement;
+            if (el && isVisible(el)) {
+              const target = el.closest('button, [role="button"], a') || el;
+              if (isVisible(target)) {
+                target.click();
+                console.log('已通过文本点击千问新建对话按钮:', text);
+                return true;
+              }
             }
           }
-          
-          node = xpathResult.iterateNext();
+          node = walker.nextNode();
         }
-        
-        // 方法3: 如果按钮查找失败，尝试使用快捷键作为备选方案
-        console.log('尝试使用快捷键方案...');
-        const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-        const key = 'k';
-        const metaKey = isMac;
-        const ctrlKey = !isMac;
-        
-        // 创建键盘事件
-        const eventOptions = {
-          key: key,
-          code: 'KeyK',
-          keyCode: 75,
-          which: 75,
-          ctrlKey: ctrlKey,
-          metaKey: metaKey,
-          altKey: false,
-          shiftKey: false,
-          bubbles: true,
-          cancelable: true,
-          composed: true,
-          view: window
-        };
-        
-        // 尝试在多个目标上发送事件
-        const targets = [
-          document.activeElement,
-          document.querySelector('input, textarea'),
-          document.body,
-          document
-        ];
-        
-        for (const target of targets) {
-          if (target) {
-            try {
-              target.dispatchEvent(new KeyboardEvent('keydown', eventOptions));
-              target.dispatchEvent(new KeyboardEvent('keyup', eventOptions));
-              console.log('已在目标上发送快捷键:', target);
-            } catch (e) {
-              console.log('目标事件发送失败:', target, e);
-            }
-          }
-        }
-        
-        console.log('已发送快捷键: ' + (isMac ? 'Command+K' : 'Ctrl+K'));
+
+        // 方法3: 回退导航到首页，保证新建对话生效
+        console.log('未找到千问新建对话按钮，回退导航到首页');
+        window.location.href = 'https://www.qianwen.com/';
         return true;
       } catch (error) {
-        console.error('Qwen新建对话脚本执行失败:', error);
+        console.error('千问新建对话脚本执行失败:', error);
         return false;
       }
     })()

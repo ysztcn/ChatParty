@@ -95,7 +95,12 @@ async function initializeApp(): Promise<void> {
     ipcHandler = new IPCHandler(windowManager, sessionManager)
 
     // 创建主窗口
-    await windowManager.createMainWindow()
+    const mainWindow = await windowManager.createMainWindow()
+
+    // 开发环境自动打开主窗口 DevTools，方便查看渲染进程日志
+    if (process.env.NODE_ENV === 'development') {
+      mainWindow.webContents.openDevTools()
+    }
 
     // 设置事件监听
     setupEventListeners()

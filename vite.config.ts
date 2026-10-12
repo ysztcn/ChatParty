@@ -78,7 +78,8 @@ export default defineConfig({
   },
   build: {
     outDir,
-    emptyOutDir: true,
+    // 快速打包（scripts/pack.js）需要保留 dist/win-unpacked 的 Electron 运行时
+    emptyOutDir: process.env.KEEP_WIN_UNPACKED !== '1',
     assetsDir: 'assets',
     sourcemap: false,
     minify: 'terser',

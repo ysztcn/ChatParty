@@ -1,30 +1,12 @@
 <template>
-  <div
-    class="unified-input"
-    :class="{ collapsed: isCollapsed }"
-  >
-    <!-- 收起时显示的悬浮展开按钮 -->
-    <transition name="fade">
-      <div
-        v-if="isCollapsed"
-        class="floating-expand-btn"
-        title="展开输入框"
-        @click="toggleCollapse"
-      >
-        <el-icon :size="16">
-          <ArrowDown />
-        </el-icon>
-        <span class="expand-label">展开输入框</span>
-      </div>
-    </transition>
-
-    <el-card
-      v-show="!isCollapsed"
-      class="input-card"
-    >
+  <div class="unified-input">
+    <el-card class="input-card">
       <div class="input-body">
         <!-- 智能体和Skill选择区 -->
-        <div class="agent-skill-row">
+        <div
+          v-show="!layoutStore.inputAgentCollapsed"
+          class="agent-skill-row"
+        >
           <div class="agent-group">
             <AgentSelector />
             <SkillBar />
@@ -63,20 +45,14 @@
             >
               {{ respondingAICount }} 个AI回答中
             </el-tag>
-            <el-button
-              :icon="ArrowUp"
-              size="small"
-              class="collapse-btn"
-              title="收起输入框"
-              @click="toggleCollapse"
-            >
-              收起
-            </el-button>
           </div>
         </div>
 
         <!-- 模型选择器 -->
-        <div class="model-selector">
+        <div
+          v-show="!layoutStore.inputModelCollapsed"
+          class="model-selector"
+        >
           <el-checkbox-group
             v-model="selectedProviders"
             class="provider-checkboxes"
@@ -130,7 +106,10 @@
           </el-checkbox-group>
         </div>
 
-        <div class="input-content">
+        <div
+          v-show="!layoutStore.inputContentCollapsed"
+          class="input-content"
+        >
           <div class="textarea-container">
             <el-input
               ref="textareaRef"
@@ -302,14 +281,12 @@ import {
   Document,
   Lightning,
   DocumentChecked,
-  ArrowUp,
-  ArrowDown,
   ChatLineRound,
   ScaleToOriginal,
   UploadFilled
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { useChatStore } from '../../stores'
+import { useChatStore, useLayoutStore } from '../../stores'
 import { useReviewStore } from '../../stores/review'
 import AgentSelector from './AgentSelector.vue'
 import SkillBar from './SkillBar.vue'
@@ -322,6 +299,7 @@ import type { AIProvider } from '@/types'
 import PromptManager from './PromptManager.vue'
 
 const chatStore = useChatStore()
+const layoutStore = useLayoutStore()
 
 // 组件事件
 const emit = defineEmits<{(e: 'summary'): void
@@ -347,9 +325,6 @@ const promptManagerVisible = ref<boolean>(false)
 // 快捷 Prompt 管理
 const quickPrompt = ref<string>('')
 
-// 折叠状态管理
-const isCollapsed = ref<boolean>(false)
-
 // 讨论面板状态
 const discussionStore = useDiscussionStore()
 
@@ -362,39 +337,6 @@ const handleDiscussionToggle = () => {
     return
   }
   emit('open-discussion')
-}
-
-/**
- * 加载折叠状态
- */
-const loadCollapsedState = (): void => {
-  try {
-    const stored = localStorage.getItem('unified-input-collapsed')
-    if (stored !== null) {
-      isCollapsed.value = JSON.parse(stored)
-    }
-  } catch (error) {
-    console.error('加载折叠状态失败:', error)
-  }
-}
-
-/**
- * 保存折叠状态
- */
-const saveCollapsedState = (): void => {
-  try {
-    localStorage.setItem('unified-input-collapsed', JSON.stringify(isCollapsed.value))
-  } catch (error) {
-    console.error('保存折叠状态失败:', error)
-  }
-}
-
-/**
- * 切换折叠状态
- */
-const toggleCollapse = (): void => {
-  isCollapsed.value = !isCollapsed.value
-  saveCollapsedState()
 }
 
 // 默认 Prompt
@@ -859,10 +801,6 @@ const handleSend = async(): Promise<void> => {
   }
 
   try {
-    if (!isCollapsed.value) {
-      isCollapsed.value = true
-    }
-
     const { loggedInProviders } = chatStore
 
     if (attachedFiles.value.length > 0) {
@@ -1261,9 +1199,6 @@ onMounted(() => {
   // 加载快捷 Prompt
   loadQuickPrompt()
 
-  // 加载折叠状态
-  loadCollapsedState()
-
   // 初始检查：为当前已登录的提供商启动AI状态监控
   startAIStatusMonitoringForLoggedInProviders()
 })
@@ -1418,10 +1353,6 @@ onUnmounted(() => {
   transition: all 0.3s ease;
 }
 
-.unified-input.collapsed .input-card {
-  display: none;
-}
-
 .input-card {
   box-shadow: var(--el-box-shadow-light);
 }
@@ -1480,72 +1411,6 @@ onUnmounted(() => {
   font-size: 11px;
   border-radius: 16px;
   padding: 4px 10px;
-}
-
-/* 悬浮展开按钮 - 收起时显示在右上角 */
-.floating-expand-btn {
-  position: fixed;
-  top: 76px;
-  right: 24px;
-  z-index: 900;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  background: var(--el-color-primary);
-  color: white;
-  border-radius: 20px;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.4);
-  transition: all 0.3s ease;
-  font-size: 13px;
-  font-weight: 500;
-  user-select: none;
-}
-
-.floating-expand-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(64, 158, 255, 0.5);
-  background: var(--el-color-primary-light-3);
-}
-
-.floating-expand-btn:active {
-  transform: translateY(0);
-}
-
-.expand-label {
-  white-space: nowrap;
-}
-
-/* 收起按钮 - 在输入框头部右侧 */
-.collapse-btn {
-  margin-left: 8px;
-  background: var(--el-color-primary-light-7);
-  border-color: var(--el-color-primary-light-5);
-  color: var(--el-color-primary);
-  font-weight: 500;
-}
-
-.collapse-btn:hover {
-  background: var(--el-color-primary);
-  border-color: var(--el-color-primary);
-  color: #fff;
-}
-
-/* 淡入淡出动画 */
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s ease, transform 0.3s ease;
-}
-
-.fade-enter-from {
-  opacity: 0;
-  transform: translateY(-10px);
-}
-
-.fade-leave-to {
-  opacity: 0;
-  transform: translateY(-10px);
 }
 
 /* 模型选择器标签 */

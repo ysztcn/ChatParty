@@ -160,8 +160,6 @@ export interface UserPreferences {
 }
 
 // 导出其他类型模块
-export * from './errors'
-export * from './events'
 export * from './ipc'
 export * from './summary'
 export * from './agent'

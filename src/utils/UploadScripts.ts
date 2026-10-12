@@ -386,10 +386,3 @@ export function getFileUploadScript(providerId: string, file: UploadFileData): s
 
   return defaultScript
 }
-
-export function getFileUploadSupportedProviders(): string[] {
-  return [
-    'chatgpt', 'gemini', 'deepseek', 'kimi', 'doubao', 'qwen',
-    'grok', 'yuanbao', 'copilot', 'glm', 'miromind', 'mimo'
-  ]
-}

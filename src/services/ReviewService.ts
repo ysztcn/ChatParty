@@ -4,7 +4,7 @@
 
 import type { AIProvider } from '../types'
 import type { ReviewResult } from '../types/review'
-import { getSendMessageScript } from '../utils/GetLLMLastMessage'
+import { getLastMessageScript } from '../utils/GetLLMLastMessage'
 import { generateReviewPrompt } from '../utils/ReviewPrompts'
 import { useReviewStore } from '../stores/review'
 import { ElMessage } from 'element-plus'
@@ -56,7 +56,7 @@ export class ReviewService {
 
       for (const provider of targetProviders) {
         try {
-          const script = getSendMessageScript(provider.id)
+          const script = getLastMessageScript(provider.id)
           if (!script) continue
 
           const result = await Promise.race([

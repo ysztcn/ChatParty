@@ -4,6 +4,30 @@ import type { CardConfig } from '../types'
 import type { DisplayLayout } from '../types/ipc'
 
 /**
+ * 读取输入框某块的折叠状态
+ */
+const loadCollapsedState = (key: string): boolean => {
+  try {
+    const stored = localStorage.getItem(key)
+    return stored !== null ? JSON.parse(stored) : false
+  } catch (error) {
+    console.error('读取输入框折叠状态失败:', error)
+    return false
+  }
+}
+
+/**
+ * 保存输入框某块的折叠状态
+ */
+const saveCollapsedState = (key: string, collapsed: boolean): void => {
+  try {
+    localStorage.setItem(key, JSON.stringify(collapsed))
+  } catch (error) {
+    console.error('保存输入框折叠状态失败:', error)
+  }
+}
+
+/**
  * 布局状态管理
  */
 export const useLayoutStore = defineStore('layout', () => {
@@ -26,6 +50,11 @@ export const useLayoutStore = defineStore('layout', () => {
 
   // 是否显示布局网格
   const showGrid = ref(false)
+
+  // 统一输入框三块折叠状态
+  const inputAgentCollapsed = ref(loadCollapsedState('chatallai_input_agent_collapsed'))
+  const inputModelCollapsed = ref(loadCollapsedState('chatallai_input_model_collapsed'))
+  const inputContentCollapsed = ref(loadCollapsedState('chatallai_input_content_collapsed'))
 
   // 卡片所属屏幕索引（多屏全屏时由视图层同步）
   const cardScreenIndex = ref<Record<string, number>>({})
@@ -422,21 +451,34 @@ export const useLayoutStore = defineStore('layout', () => {
   )
 
   /**
+   * 切换智能体与技能行折叠状态
+   */
+  const toggleInputAgent = (): void => {
+    inputAgentCollapsed.value = !inputAgentCollapsed.value
+    saveCollapsedState('chatallai_input_agent_collapsed', inputAgentCollapsed.value)
+  }
+
+  /**
+   * 切换模型选择区折叠状态
+   */
+  const toggleInputModel = (): void => {
+    inputModelCollapsed.value = !inputModelCollapsed.value
+    saveCollapsedState('chatallai_input_model_collapsed', inputModelCollapsed.value)
+  }
+
+  /**
+   * 切换输入区折叠状态
+   */
+  const toggleInputContent = (): void => {
+    inputContentCollapsed.value = !inputContentCollapsed.value
+    saveCollapsedState('chatallai_input_content_collapsed', inputContentCollapsed.value)
+  }
+
+  /**
    * 更新显示布局
    */
   const updateDisplayLayout = (layout: DisplayLayout): void => {
     displayLayout.value = layout
-  }
-
-  /**
-   * 按数量均分卡片到各屏，余数分配给前面的屏
-   */
-  const getPerScreenCardCounts = (cardCount: number): number[] => {
-    const { screenCount } = displayLayout.value
-    if (screenCount <= 1) return [cardCount]
-    const base = Math.floor(cardCount / screenCount)
-    const remainder = cardCount % screenCount
-    return Array.from({ length: screenCount }, (_item, i) => base + (i < remainder ? 1 : 0))
   }
 
   return {
@@ -448,6 +490,12 @@ export const useLayoutStore = defineStore('layout', () => {
     gridSettings,
     windowSize,
     showGrid,
+    inputAgentCollapsed,
+    inputModelCollapsed,
+    inputContentCollapsed,
+    toggleInputAgent,
+    toggleInputModel,
+    toggleInputContent,
     availableWidth,
     availableHeight,
     cardWidth,
@@ -469,7 +517,6 @@ export const useLayoutStore = defineStore('layout', () => {
     getCardConfig,
     updateCardTitle,
     updateDisplayLayout,
-    setCardScreenIndexes,
-    getPerScreenCardCounts
+    setCardScreenIndexes
   }
 })

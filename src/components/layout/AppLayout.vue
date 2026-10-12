@@ -7,9 +7,10 @@
     <!-- 顶部导航栏 -->
     <AppHeader />
 
-    <!-- 主内容区域 -->
+    <!-- 主内容区域：两个视图常驻，用 v-show 切换，避免路由切换卸载 Chat 导致 webview 重建 -->
     <main class="main-content">
-      <router-view />
+      <ChatView v-show="route.path === '/chat'" />
+      <SettingsView v-show="route.path === '/settings'" />
     </main>
 
     <!-- 底部状态栏 -->
@@ -19,10 +20,14 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { useAppStore, useLayoutStore } from '../../stores'
 import AppHeader from './AppHeader.vue'
 import AppFooter from './AppFooter.vue'
+import ChatView from '../../views/Chat.vue'
+import SettingsView from '../../views/Settings.vue'
 
+const route = useRoute()
 const appStore = useAppStore()
 const layoutStore = useLayoutStore()
 

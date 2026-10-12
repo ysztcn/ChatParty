@@ -8,7 +8,7 @@
 
 import type { AIProvider } from '../types'
 import type { AIResponse, SummaryOptions } from '../types/summary'
-import { getSendMessageScript } from '../utils/GetLLMLastMessage'
+import { getLastMessageScript } from '../utils/GetLLMLastMessage'
 import { generateSummaryPrompt } from '../utils/SummaryPrompts'
 import { useSummaryStore } from '../stores/summary'
 import { ElMessage } from 'element-plus'
@@ -146,7 +146,7 @@ export class SummaryService {
     }
 
     // 获取执行脚本
-    const script = getSendMessageScript(provider.id)
+    const script = getLastMessageScript(provider.id)
 
     if (!script) {
       throw new Error(`暂不支持获取 ${provider.name} 的回答`)

@@ -382,7 +382,7 @@ import { ScaleToOriginal, DocumentCopy, View } from '@element-plus/icons-vue'
 import { marked } from 'marked'
 import { ElMessage } from 'element-plus'
 import { useChatStore } from '../../stores'
-import { getSendMessageScript } from '../../utils/GetLLMLastMessage'
+import { getLastMessageScript } from '../../utils/GetLLMLastMessage'
 
 interface ResponseData {
   providerId: string
@@ -481,7 +481,7 @@ const handleCollect = async() => {
   for (const provider of providers) {
     collectMessage.value = `正在收集 ${provider.name} 的回答...`
     try {
-      const script = getSendMessageScript(provider.id)
+      const script = getLastMessageScript(provider.id)
       if (!script) {
         responses.value.push({
           providerId: provider.id,
