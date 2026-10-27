@@ -566,43 +566,117 @@ function getQwenScript(escapedMessage: string): string {
 
 /**
  * Copilot发送脚本
+ * 兼容 textarea 与 contenteditable 两类输入框，穿透 open shadow root，仅匹配可见元素
  */
 function getCopilotScript(escapedMessage: string): string {
   return `
     (function() {
       const MESSAGE = '${escapedMessage}';
-      const INPUT_SEND_DELAY_MS = 500;
+      const INPUT_SEND_DELAY_MS = 800;
 
-      function findChatInput() {
-        return document.querySelector('[data-testid="composer-input"]')
-          || document.querySelector('#userInput')
-          || document.querySelector('textarea');
+      function isVisible(el) {
+        if (!el || !el.getClientRects) return false;
+        if (el.getClientRects().length === 0) return false;
+        const style = window.getComputedStyle(el);
+        if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
+        return true;
       }
 
-      function findSendButton() {
-        const btn = document.querySelector('[data-testid="submit-button"]');
-        if (btn) return btn;
-        const submit = Array.from(document.querySelectorAll('button')).find((b) => {
-          const label = (b.getAttribute('aria-label') || '').toLowerCase();
-          return label.includes('submit') || label.includes('send') || label.includes('发送') || label.includes('提交');
-        });
-        return submit || null;
+      function deepQuery(selector) {
+        const direct = document.querySelector(selector);
+        if (direct) return direct;
+        const all = document.querySelectorAll('*');
+        for (const el of all) {
+          if (el.tagName && el.tagName.indexOf('-') !== -1 && el.shadowRoot) {
+            const found = el.shadowRoot.querySelector(selector);
+            if (found) return found;
+          }
+        }
+        return null;
+      }
+
+      function findChatInput() {
+        const selectors = [
+          'textarea[data-testid="composer-input"]',
+          'textarea#userInput',
+          'textarea[placeholder*="Ask"]',
+          'textarea[placeholder*="Copilot"]',
+          'textarea[placeholder*="Message"]',
+          '#userInput',
+          '[data-testid="composer-input"]',
+          'div[contenteditable="true"][role="textbox"]',
+          '[contenteditable="true"][data-placeholder]',
+          'textarea',
+          '[contenteditable="true"][role="textbox"]'
+        ];
+        for (const sel of selectors) {
+          const el = deepQuery(sel);
+          if (el && isVisible(el)) return el;
+        }
+        return null;
       }
 
       function setValue(el) {
         el.focus();
-        try {
-          const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
-          setter.call(el, MESSAGE);
-        } catch (e) {
-          el.value = MESSAGE;
+        const isTextarea = el.tagName === 'TEXTAREA' || el.tagName === 'INPUT';
+        if (isTextarea) {
+          try {
+            const proto = el.tagName === 'TEXTAREA' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
+            const setter = Object.getOwnPropertyDescriptor(proto, 'value').set;
+            setter.call(el, MESSAGE);
+          } catch (e) {
+            el.value = MESSAGE;
+          }
+          try {
+            el.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: false, inputType: 'insertText', data: MESSAGE }));
+          } catch (e) {
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+        } else {
+          el.textContent = '';
+          let inserted = false;
+          try {
+            document.execCommand('selectAll', false, null);
+            document.execCommand('delete', false, null);
+            inserted = document.execCommand('insertText', false, MESSAGE);
+          } catch (e) {
+            inserted = false;
+          }
+          if (!inserted) {
+            el.textContent = MESSAGE;
+          }
+          try {
+            el.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: false, inputType: 'insertText', data: MESSAGE }));
+          } catch (e) {
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+          }
         }
-        try {
-          el.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: false, inputType: 'insertText', data: MESSAGE }));
-        } catch (e) {
-          el.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+
+      function findSendButton() {
+        const selectors = [
+          'button[data-testid="submit-button"]',
+          'button[data-testid="send-button"]',
+          'button[aria-label*="Submit"]',
+          'button[aria-label*="Send"]',
+          'button[aria-label*="submit"]',
+          'button[aria-label*="send"]',
+          'button[type="submit"]'
+        ];
+        for (const sel of selectors) {
+          const el = deepQuery(sel);
+          if (el && isVisible(el)) return el;
         }
-        el.dispatchEvent(new Event('change', { bubbles: true }));
+        const buttons = document.querySelectorAll('button');
+        for (const b of buttons) {
+          if (!isVisible(b)) continue;
+          const label = (b.getAttribute('aria-label') || '').toLowerCase();
+          if (label.includes('submit') || label.includes('send') || label.includes('发送') || label.includes('提交')) {
+            return b;
+          }
+        }
+        return null;
       }
 
       function send(el) {
@@ -616,16 +690,20 @@ function getCopilotScript(escapedMessage: string): string {
           ['mousedown', 'mouseup', 'click'].forEach((type) => {
             btn.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
           });
-          return;
+          return true;
         }
-        el.dispatchEvent(new KeyboardEvent('keydown', {
-          bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13, shiftKey: false
-        }));
+        el.focus();
+        ['keydown', 'keypress', 'keyup'].forEach((type) => {
+          el.dispatchEvent(new KeyboardEvent(type, {
+            bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13, shiftKey: false
+          }));
+        });
+        return true;
       }
 
       const input = findChatInput();
-      if (!input || input.tagName !== 'TEXTAREA') {
-        console.error('[Copilot] 未找到输入框:', input);
+      if (!input) {
+        console.error('[Copilot] 未找到输入框');
         return false;
       }
 
@@ -773,58 +851,141 @@ function getGeminiScript(escapedMessage: string): string {
 
 /**
  * ChatGPT发送脚本
+ * 输入框为 contenteditable（ProseMirror），直接赋 innerText 不会触发框架状态更新，
+ * 发送按钮保持禁用导致发送失效；这里按 textarea/contenteditable 分别写入并派发输入事件
  */
-function getChatGPTScript(escapedMessage: string, chatInputSelector: string = '[id="prompt-textarea"]', sendButtonSelector: string = '[data-testid="send-button"]'): string {
+function getChatGPTScript(escapedMessage: string, chatInputSelector: string = 'div.ProseMirror[contenteditable="true"]', sendButtonSelector: string = 'button[type="submit"]'): string {
   return `
       (function() {
       // --- Configuration ---
       const CHAT_INPUT_SELECTOR = '${chatInputSelector}';
-      const SEND_BUTTON_SELECTOR = '${sendButtonSelector}';
+      const SEND_BUTTON_SELECTORS = ['${sendButtonSelector}', '[data-testid="send-button"]', 'button[type="submit"]', '[aria-label="发送"]', '[aria-label*="Send"]'];
       const INPUT_SEND_DELAY_MS = 500;
+      const MAX_SEND_ATTEMPTS = 10;
 
       // --- Input Handling ---
+      // 选择器可能命中多个（含用于测量的隐藏 ProseMirror），优先取可见的，否则取最后一个
       function findChatInput() {
-        const element = document.querySelector(CHAT_INPUT_SELECTOR);
-        if (element) {
-          return element;
+        const list = Array.from(document.querySelectorAll(CHAT_INPUT_SELECTOR));
+        if (list.length === 0) {
+          return null;
         }
-        return null;
+        const visible = list.find((el) => el.getClientRects && el.getClientRects().length > 0);
+        return visible || list[list.length - 1];
       }
 
       const inputElement = findChatInput();
 
       if (!inputElement) {
-        console.error("[Input] Chat input TEXTAREA element not found using selector:", CHAT_INPUT_SELECTOR);
+        console.error("[Input] Chat input element not found using selector:", CHAT_INPUT_SELECTOR);
         return false;
       }
 
-      try {
-        inputElement.focus();
-        console.log("[Input] Focused the textarea element.");
-
-        const newValue = '${escapedMessage}';
-
-        // 使用更可靠的方式设置input值
-        try {
-          inputElement.innerText = newValue;
-        } catch (e) {
-          console.error("Error setting input value using native setter or direct assignment:", e);
-          if (inputElement.innerText !== newValue) {
-            inputElement.value = newValue;
-            console.warn("Forced input value setting after error.");
+      function setInputValue(element, text) {
+        element.focus();
+        const tag = element.tagName;
+        if (tag === 'TEXTAREA' || tag === 'INPUT') {
+          const proto = tag === 'TEXTAREA' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
+          const setter = Object.getOwnPropertyDescriptor(proto, 'value').set;
+          if (setter) {
+            setter.call(element, text);
+          } else {
+            element.value = text;
           }
+          element.dispatchEvent(new Event('input', { bubbles: true }));
+          return true;
         }
 
-        // 延迟后发送Enter键事件
-        setTimeout(() => {
-          const sendButton = document.querySelector(SEND_BUTTON_SELECTOR);
-          if (sendButton) {
+        // contenteditable：优先走 execCommand，其次 paste 事件，最后兜底赋 textContent 并补派发事件
+        element.textContent = '';
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(element);
+        selection.removeAllRanges();
+        selection.addRange(range);
+
+        let inserted = false;
+        try {
+          inserted = document.execCommand('insertText', false, text);
+        } catch (e) {
+          inserted = false;
+        }
+        if (!inserted) {
+          try {
+            const dt = new DataTransfer();
+            dt.setData('text/plain', text);
+            const pasteEvent = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true });
+            inserted = !element.dispatchEvent(pasteEvent);
+          } catch (e) {
+            inserted = false;
+          }
+        }
+        if (!inserted) {
+          element.textContent = text;
+          try {
+            element.dispatchEvent(new InputEvent('beforeinput', { bubbles: true, cancelable: true, inputType: 'insertText', data: text }));
+          } catch (e) {}
+          try {
+            element.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
+          } catch (e) {
+            element.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+        }
+        return true;
+      }
+
+      // 发送按钮优先在输入框所在表单内查找，避免命中页面其他表单的提交按钮
+      function findSendButton() {
+        const form = inputElement.closest('form');
+        for (const sel of SEND_BUTTON_SELECTORS) {
+          if (form) {
+            const inForm = form.querySelector(sel);
+            if (inForm) {
+              return inForm;
+            }
+          }
+        }
+        for (const sel of SEND_BUTTON_SELECTORS) {
+          const global = document.querySelector(sel);
+          if (global) {
+            return global;
+          }
+        }
+        return null;
+      }
+
+      // 输入后发送按钮由框架异步启用，轮询等待可点击再点击，超时回退 Enter
+      function sendMessage() {
+        let attempts = 0;
+        function attemptSend() {
+          const sendButton = findSendButton();
+          if (sendButton && !sendButton.disabled && sendButton.getAttribute('aria-disabled') !== 'true') {
             sendButton.click();
             console.log("Simulated 'click' event on send button.");
-          } else {
-            console.error("[Input] Send button element not found using selector:", SEND_BUTTON_SELECTOR);
+            return;
           }
-        }, INPUT_SEND_DELAY_MS);
+          attempts += 1;
+          if (attempts < MAX_SEND_ATTEMPTS) {
+            setTimeout(attemptSend, 200);
+          } else {
+            const enterEvent = new KeyboardEvent('keydown', {
+              bubbles: true,
+              cancelable: true,
+              key: 'Enter',
+              code: 'Enter',
+              keyCode: 13,
+              which: 13,
+            });
+            inputElement.dispatchEvent(enterEvent);
+            console.error("[Input] Send button not enabled, dispatched Enter as fallback.");
+          }
+        }
+        attemptSend();
+      }
+
+      try {
+        setInputValue(inputElement, '${escapedMessage}');
+        setTimeout(sendMessage, INPUT_SEND_DELAY_MS);
         return true;
       } catch (e) {
         console.error("[Input] Error during input simulation:", e);

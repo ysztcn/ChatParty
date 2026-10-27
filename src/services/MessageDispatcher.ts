@@ -333,10 +333,14 @@ export class MessageDispatcher extends BrowserEventEmitter {
 
       // 通过IPC发送消息到WebView
       if (window.electronAPI) {
-        await Promise.race([
+        const sendResult = await Promise.race([
           window.electronAPI.sendMessageToWebView(provider.webviewId, transformedContent),
           this.createTimeoutPromise(this.config.timeout)
         ])
+
+        if (sendResult !== true) {
+          throw new Error('发送脚本执行失败：未找到输入框或发送按钮')
+        }
 
         // 设置成功状态
         this.setSendingStatus(providerId, 'sent')

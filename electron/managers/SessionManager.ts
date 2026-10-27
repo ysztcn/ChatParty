@@ -13,6 +13,36 @@ import * as crypto from 'crypto'
 // Grok会话统一UA：与主进程web-contents-created钩子、renderer注入保持一致
 export const GROK_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 
+// Gemini会话统一UA：伪装为Windows Chrome 134，与请求头、Client Hints、Emulation元数据保持一致
+export const GEMINI_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36'
+
+// Chrome 134的真实Sec-CH-UA格式：GREASE品牌为Not(A:Brand，顺序Not、Google Chrome、Chromium
+export const GEMINI_SEC_CH_UA = '"Not(A:Brand";v="99", "Google Chrome";v="134", "Chromium";v="134"'
+export const GEMINI_SEC_CH_UA_FULL_VERSION_LIST =
+  '"Not(A:Brand";v="99.0.0.0", "Google Chrome";v="134.0.0.0", "Chromium";v="134.0.0.0"'
+
+// Emulation.setUserAgentOverride使用的Client Hints元数据，与GEMINI_SEC_CH_UA完全对齐
+export const GEMINI_USER_AGENT_METADATA = {
+  brands: [
+    { brand: 'Not(A:Brand', version: '99' },
+    { brand: 'Google Chrome', version: '134' },
+    { brand: 'Chromium', version: '134' }
+  ],
+  fullVersionList: [
+    { brand: 'Not(A:Brand', version: '99.0.0.0' },
+    { brand: 'Google Chrome', version: '134.0.0.0' },
+    { brand: 'Chromium', version: '134.0.0.0' }
+  ],
+  fullVersion: '134.0.0.0',
+  platform: 'Windows',
+  platformVersion: '10.0.0',
+  architecture: 'x86',
+  bitness: '64',
+  model: '',
+  mobile: false,
+  wow64: false
+}
+
 /**
  * 会话数据接口
  */
@@ -207,43 +237,38 @@ export class SessionManager extends EventEmitter {
 
   /**
    * 配置Gemini会话的特殊设置
-   * 解决"此浏览器或应用可能不安全"问题
+   * 只覆盖UA与Client Hints，保持与真实Chrome一致；
+   * 强加Sec-Fetch、改写Cookie属性等异常行为会被Google判定为不安全客户端
    */
   private configureGeminiSession(electronSession: Session): void {
     console.log('[SessionManager] Configuring Gemini session with security bypasses')
 
-    const userAgent = this.getUserAgent('gemini') || ''
-    const secChUa = this.getSecChUa()
+    const userAgent = GEMINI_USER_AGENT
 
-    // 拦截请求头，确保所有发往Google的请求都带有正确的UA和平台信息
     electronSession.webRequest.onBeforeSendHeaders(
       {
         urls: ['*://*.google.com/*', '*://*.googleusercontent.com/*', '*://gemini.google.com/*', '*://accounts.google.com/*']
       },
       (details, callback) => {
-        // 强制修改User-Agent，移除Electron标识
-        details.requestHeaders['User-Agent'] = userAgent
-
-        // 添加Chrome特有的请求头，增强伪装
-        details.requestHeaders['Sec-Ch-Ua'] = secChUa
-        details.requestHeaders['Sec-Ch-Ua-Mobile'] = '?0'
-        details.requestHeaders['Sec-Ch-Ua-Platform'] = '"Windows"'
-        details.requestHeaders['Sec-Ch-Ua-Arch'] = '"x86_64"'
-        details.requestHeaders['Sec-Ch-Ua-Bitness'] = '"64"'
-        details.requestHeaders['Sec-Ch-Ua-Full-Version'] = '"134.0.0.0"'
-        details.requestHeaders['Sec-Ch-Ua-Full-Version-List'] = secChUa
-        details.requestHeaders['Sec-Fetch-Dest'] = 'document'
-        details.requestHeaders['Sec-Fetch-Mode'] = 'navigate'
-        details.requestHeaders['Sec-Fetch-Site'] = 'none'
-        details.requestHeaders['Sec-Fetch-User'] = '?1'
-        details.requestHeaders['Upgrade-Insecure-Requests'] = '1'
-
-        // 添加Accept-Language和Accept头
-        if (!details.requestHeaders['Accept-Language']) {
-          details.requestHeaders['Accept-Language'] = 'zh-CN,zh;q=0.9,en;q=0.8'
+        // 大小写不敏感地覆盖既有头，避免键名不一致导致重复头
+        const setHeader = (name: string, value: string): void => {
+          const existing = Object.keys(details.requestHeaders).find((key) => key.toLowerCase() === name.toLowerCase())
+          details.requestHeaders[existing || name] = value
         }
-        if (!details.requestHeaders.Accept) {
-          details.requestHeaders.Accept = 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+        const hasHeader = (name: string): boolean =>
+          Object.keys(details.requestHeaders).some((key) => key.toLowerCase() === name.toLowerCase())
+
+        setHeader('User-Agent', userAgent)
+        setHeader('Sec-Ch-Ua', GEMINI_SEC_CH_UA)
+        setHeader('Sec-Ch-Ua-Mobile', '?0')
+        setHeader('Sec-Ch-Ua-Platform', '"Windows"')
+
+        // 仅覆盖请求原本携带的扩展头，避免发送浏览器默认不会发送的头
+        if (hasHeader('sec-ch-ua-full-version-list')) {
+          setHeader('Sec-Ch-Ua-Full-Version-List', GEMINI_SEC_CH_UA_FULL_VERSION_LIST)
+        }
+        if (hasHeader('sec-ch-ua-full-version')) {
+          setHeader('Sec-Ch-Ua-Full-Version', '"134.0.0.0"')
         }
 
         // 移除可能暴露Electron身份的请求头
@@ -252,68 +277,6 @@ export class SessionManager extends EventEmitter {
         delete details.requestHeaders['X-DevTools-Request-Id']
 
         callback({ requestHeaders: details.requestHeaders })
-      }
-    )
-
-    // 拦截响应头，处理Cookie和CSP策略
-    electronSession.webRequest.onHeadersReceived(
-      {
-        urls: ['*://*.google.com/*', '*://*.googleusercontent.com/*', '*://gemini.google.com/*', '*://accounts.google.com/*']
-      },
-      (details, callback) => {
-        const responseHeaders: Record<string, string | string[]> = {}
-
-        // 复制原始响应头
-        for (const [key, value] of Object.entries(details.responseHeaders || {})) {
-          if (value !== undefined) {
-            responseHeaders[key] = value
-          }
-        }
-
-        // 处理Set-Cookie头，确保SameSite=None且Secure
-        if (responseHeaders['set-cookie']) {
-          const cookies = Array.isArray(responseHeaders['set-cookie'])
-            ? responseHeaders['set-cookie']
-            : [responseHeaders['set-cookie']]
-          responseHeaders['set-cookie'] = cookies.map((cookie: string) => {
-            // 确保Cookie包含SameSite=None; Secure
-            if (!cookie.includes('SameSite')) {
-              return `${cookie}; SameSite=None; Secure`
-            }
-            return cookie
-          })
-        }
-
-        // 移除阻止嵌入的X-Frame-Options头
-        delete responseHeaders['x-frame-options']
-        delete responseHeaders['X-Frame-Options']
-
-        // 修改Permissions-Policy头，移除ch-ua-form-factors
-        if (responseHeaders['permissions-policy']) {
-          const policies = Array.isArray(responseHeaders['permissions-policy'])
-            ? responseHeaders['permissions-policy']
-            : [responseHeaders['permissions-policy']]
-          // 移除 ch-ua-form-factors 相关策略
-          responseHeaders['permissions-policy'] = policies.map(
-            (policy: string) => policy.replace(/ch-ua-form-factors[^,]*,?/g, '').replace(/,,/g, ',').replace(/,$/, '')
-          )
-        }
-
-        // 修改CSP策略，允许嵌入
-        if (responseHeaders['content-security-policy']) {
-          const policies = Array.isArray(responseHeaders['content-security-policy'])
-            ? responseHeaders['content-security-policy']
-            : [responseHeaders['content-security-policy']]
-          responseHeaders['content-security-policy'] = policies.map((policy: string) => policy.replace(/frame-ancestors[^;]*;/g, 'frame-ancestors *;'))
-        }
-        if (responseHeaders['Content-Security-Policy']) {
-          const policies = Array.isArray(responseHeaders['Content-Security-Policy'])
-            ? responseHeaders['Content-Security-Policy']
-            : [responseHeaders['Content-Security-Policy']]
-          responseHeaders['Content-Security-Policy'] = policies.map((policy: string) => policy.replace(/frame-ancestors[^;]*;/g, 'frame-ancestors *;'))
-        }
-
-        callback({ cancel: false, responseHeaders })
       }
     )
 
@@ -380,18 +343,10 @@ export class SessionManager extends EventEmitter {
       qwen: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
       copilot: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
       // Gemini使用Windows Chrome UA，更不容易被识别为Electron
-      gemini: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36'
+      gemini: GEMINI_USER_AGENT
     }
 
     return userAgents[providerId]
-  }
-
-  /**
-   * 获取Sec-Ch-Ua头信息
-   * 用于完善浏览器伪装
-   */
-  private getSecChUa(): string {
-    return '"Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"'
   }
 
   /**

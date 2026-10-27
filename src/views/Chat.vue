@@ -229,9 +229,8 @@ const gridStyle = computed<CSSProperties>(() => {
  */
 const isMultiScreen = computed(() => layoutStore.isMultiScreenFullScreen)
 
-// 输入区域引用与高度
+// 输入区域引用
 const inputSectionRef = ref<HTMLElement | null>(null)
-const inputHeight = ref(0)
 
 /**
  * 输入区域样式（多屏时固定到主屏）
@@ -250,33 +249,15 @@ const inputSectionStyle = computed(() => {
 
 /**
  * 多屏全屏时各屏分配到的卡片数量
- * 按顺序填满各屏：每屏容量 = 列数 × 该屏高度可容纳的行数（行高至少 minCardHeight），
- * 第 1 屏放满再放第 2 屏，超出总容量的卡片压缩行高放进最后一屏，保证全部显示
+ * 可见卡片在各屏之间均分，不能整除的余数按屏幕顺序依次多分一张
  */
 const perScreenCounts = computed<number[]>(() => {
   if (!isMultiScreen.value) return [visibleProviders.value.length]
-  const { screens, primaryIndex } = layoutStore.displayLayout
-  const {
-    columns, gap, minCardHeight
-  } = layoutStore.gridSettings
-  let remaining = visibleProviders.value.length
-  const counts = screens.map((screen, i) => {
-    const isLast = i === screens.length - 1
-    if (isLast) {
-      const count = remaining
-      remaining = 0
-      return count
-    }
-    const isPrimary = i === primaryIndex
-    const topOffset = isPrimary ? 60 + inputHeight.value : 0
-    const bottomOffset = isPrimary ? 32 : 0
-    const avail = Math.max(0, screen.height - topOffset - bottomOffset - gap * 2)
-    const maxRows = Math.max(1, Math.floor((avail + gap) / (minCardHeight + gap)))
-    const count = Math.min(remaining, columns * maxRows)
-    remaining -= count
-    return count
-  })
-  return counts
+  const { screens } = layoutStore.displayLayout
+  const total = visibleProviders.value.length
+  const base = Math.floor(total / screens.length)
+  const remainder = total % screens.length
+  return screens.map((_screen, index) => base + (index < remainder ? 1 : 0))
 })
 
 /**
@@ -307,10 +288,11 @@ watch(screenGroups, (groups) => {
 /**
  * 多屏全屏下单张卡片的位置样式
  * 坐标系对齐窗口视口（容器为 fixed 铺满视口），screen.x/screen.y 即物理屏幕位置
+ * 每屏内的卡片横向均分整屏宽度，不受单屏网格列数约束
  */
 const getMultiScreenCardStyle = (providerId: string): CSSProperties => {
   const { screens, primaryIndex } = layoutStore.displayLayout
-  const { columns, gap } = layoutStore.gridSettings
+  const { gap } = layoutStore.gridSettings
   const counts = perScreenCounts.value
 
   const globalIndex = visibleProviders.value.findIndex((p) => p.id === providerId)
@@ -330,25 +312,19 @@ const getMultiScreenCardStyle = (providerId: string): CSSProperties => {
     x: 0, y: 0, width: 0, height: 0
   }
   const cardCount = Math.max(1, counts[screenIndex] ?? 1)
-  const gridCols = Math.max(1, columns)
-  const rows = Math.max(1, Math.ceil(cardCount / gridCols))
-  const col = localIndex % gridCols
-  const row = Math.floor(localIndex / gridCols)
   const isPrimary = screenIndex === primaryIndex
   // 主屏顶部让出 header 与输入区，底部让出状态栏
-  const topOffset = isPrimary ? 60 + inputHeight.value : 0
+  const topOffset = isPrimary ? 60 + layoutStore.inputHeight : 0
   const bottomOffset = isPrimary ? 32 : 0
 
   const pad = gap
-  const cellWidth = (screen.width - pad * 2 - gap * (gridCols - 1)) / gridCols
-  const availHeight = Math.max(0, screen.height - topOffset - bottomOffset - pad * 2)
-  // 卡片数超出该屏容量时行高自动压缩（低于 minCardHeight），保证全部卡片可见
-  const cellHeight = Math.max(0, (availHeight - gap * (rows - 1)) / rows)
+  const cellWidth = Math.max(0, (screen.width - pad * 2 - gap * (cardCount - 1)) / cardCount)
+  const cellHeight = Math.max(0, screen.height - topOffset - bottomOffset - pad * 2)
 
   return {
     position: 'absolute',
-    left: `${screen.x + pad + col * (cellWidth + gap)}px`,
-    top: `${screen.y + topOffset + pad + row * (cellHeight + gap)}px`,
+    left: `${screen.x + pad + localIndex * (cellWidth + gap)}px`,
+    top: `${screen.y + topOffset + pad}px`,
     width: `${cellWidth}px`,
     height: `${cellHeight}px`
   }
@@ -440,9 +416,9 @@ onMounted(() => {
 
   // 测量输入区域高度（用于多屏时主屏卡片偏移）
   if (inputSectionRef.value) {
-    inputHeight.value = inputSectionRef.value.offsetHeight
+    layoutStore.setInputHeight(inputSectionRef.value.offsetHeight)
     inputResizeObserver = new ResizeObserver(() => {
-      inputHeight.value = inputSectionRef.value?.offsetHeight || 0
+      layoutStore.setInputHeight(inputSectionRef.value?.offsetHeight || 0)
     })
     inputResizeObserver.observe(inputSectionRef.value)
   }

@@ -115,7 +115,7 @@
               ref="textareaRef"
               v-model="currentMessage"
               type="textarea"
-              :rows="textareaRows"
+              :rows="minRows"
               :placeholder="inputPlaceholder"
               :disabled="loggedInCount === 0"
               class="message-input"
@@ -344,7 +344,6 @@ const DEFAULT_PROMPT = '请帮我分析以下内容，并提供详细的建议�
 
 // 输入框交互优化相关数据
 const textareaRef = ref<any>(null)
-const textareaRows = ref<number>(3)
 const isExpanded = ref<boolean>(false)
 const isResizing = ref<boolean>(false)
 const minRows = ref<number>(3)
@@ -565,27 +564,42 @@ const inputPlaceholder = computed(() => {
 // 输入框交互优化相关方法
 
 /**
- * 自动调整输入框高度
+ * 获取 textarea 的行高与内边距（用于按像素控制高度）
  */
-const autoResize = (): void => {
-  if (!textareaRef.value || isResizing.value || isExpanded.value) return
-
+const getTextareaMetrics = (): { textarea: HTMLTextAreaElement, lineHeight: number, padding: number } | null => {
+  if (!textareaRef.value) return null
   const textarea = textareaRef.value.$el.querySelector('.el-textarea__inner') as HTMLTextAreaElement
-  if (!textarea) return
-
-  // 重置高度以获取正确的滚动高度
-  textarea.style.height = 'auto'
-
-  // 计算所需行数
+  if (!textarea) return null
   const computedStyle = getComputedStyle(textarea)
   const lineHeight = parseFloat(computedStyle.lineHeight)
-  const { scrollHeight } = textarea
   const padding = parseFloat(computedStyle.paddingTop) + parseFloat(computedStyle.paddingBottom)
-  const contentHeight = scrollHeight - padding
-  const rows = Math.ceil(contentHeight / lineHeight)
+  if (!Number.isFinite(lineHeight) || lineHeight <= 0) return null
+  return { textarea, lineHeight, padding }
+}
 
-  // 限制行数在最小和最大之间
-  textareaRows.value = Math.max(minRows.value, Math.min(maxRows.value, rows))
+/**
+ * 计算指定行数对应的高度（像素）
+ */
+const rowsToHeight = (lineHeight: number, padding: number, rows: number): number => lineHeight * rows + padding
+
+/**
+ * 自动调整输入框高度
+ * 直接写 DOM 高度、不修改响应式 rows，避免输入时触发组件更新导致输入框重新聚焦、光标抖动
+ */
+const autoResize = (): void => {
+  if (isResizing.value || isExpanded.value) return
+
+  const metrics = getTextareaMetrics()
+  if (!metrics) return
+
+  const { textarea, lineHeight, padding } = metrics
+  const minHeight = rowsToHeight(lineHeight, padding, minRows.value)
+  const maxHeight = rowsToHeight(lineHeight, padding, maxRows.value)
+  const contentHeight = textarea.scrollHeight
+
+  const nextHeight = Math.max(minHeight, Math.min(maxHeight, contentHeight))
+  textarea.style.height = `${nextHeight}px`
+  textarea.style.overflowY = contentHeight > maxHeight ? 'auto' : 'hidden'
 }
 
 /**
@@ -626,9 +640,9 @@ const startResize = (event: MouseEvent | TouchEvent): void => {
   }
 
   // 获取起始高度
-  const textarea = textareaRef.value.$el.querySelector('.el-textarea') as HTMLElement
-  if (textarea) {
-    resizeStartHeight.value = textarea.offsetHeight
+  const metrics = getTextareaMetrics()
+  if (metrics) {
+    resizeStartHeight.value = metrics.textarea.offsetHeight
   }
 
   // 添加事件监听器
@@ -655,21 +669,21 @@ const resize = (event: MouseEvent | TouchEvent): void => {
     currentY = event.touches[0].clientY
   }
 
-  // 计算高度变化
-  const deltaY = currentY - resizeStartY.value
-  const textareaInner = textareaRef.value.$el.querySelector('.el-textarea__inner') as HTMLElement
-  const lineHeight = parseFloat(getComputedStyle(textareaInner).lineHeight)
-  const deltaRows = Math.round(deltaY / lineHeight)
+  const metrics = getTextareaMetrics()
+  if (!metrics) return
 
-  // 更新行数
-  textareaRows.value = Math.max(minRows.value, Math.min(maxRows.value, textareaRows.value + deltaRows))
+  const { textarea, lineHeight, padding } = metrics
+  const deltaY = currentY - resizeStartY.value
+  const minHeight = rowsToHeight(lineHeight, padding, minRows.value)
+  const maxHeight = rowsToHeight(lineHeight, padding, maxRows.value)
+  const nextHeight = Math.max(minHeight, Math.min(maxHeight, resizeStartHeight.value + deltaY))
+
+  textarea.style.height = `${nextHeight}px`
+  textarea.style.overflowY = nextHeight >= maxHeight ? 'auto' : 'hidden'
 
   // 更新起始位置和高度
   resizeStartY.value = currentY
-  const textarea = textareaRef.value.$el.querySelector('.el-textarea') as HTMLElement
-  if (textarea) {
-    resizeStartHeight.value = textarea.offsetHeight
-  }
+  resizeStartHeight.value = nextHeight
 }
 
 /**
@@ -694,12 +708,16 @@ const stopResize = (): void => {
 const toggleExpand = (): void => {
   isExpanded.value = !isExpanded.value
 
-  if (isExpanded.value) {
-    // 全屏状态
-    textareaRows.value = maxRows.value
-  } else {
-    // 回到最小行数
-    textareaRows.value = minRows.value
+  const metrics = getTextareaMetrics()
+  if (metrics) {
+    const { textarea, lineHeight, padding } = metrics
+    if (isExpanded.value) {
+      const maxHeight = rowsToHeight(lineHeight, padding, maxRows.value)
+      textarea.style.height = `${maxHeight}px`
+      textarea.style.overflowY = 'auto'
+    } else {
+      autoResize()
+    }
   }
 
   // 保存用户偏好
@@ -710,15 +728,13 @@ const toggleExpand = (): void => {
  * 保存用户偏好的高度
  */
 const savePreferredHeight = (): void => {
-  if (textareaRef.value) {
-    const textarea = textareaRef.value.$el.querySelector('.el-textarea') as HTMLElement
-    if (textarea) {
-      preferredHeight.value = textarea.offsetHeight
-      localStorage.setItem('textarea-preferred-height', JSON.stringify({
-        height: preferredHeight.value,
-        isExpanded: isExpanded.value
-      }))
-    }
+  const metrics = getTextareaMetrics()
+  if (metrics) {
+    preferredHeight.value = metrics.textarea.offsetHeight
+    localStorage.setItem('textarea-preferred-height', JSON.stringify({
+      height: preferredHeight.value,
+      isExpanded: isExpanded.value
+    }))
   }
 }
 
@@ -728,25 +744,23 @@ const savePreferredHeight = (): void => {
 const loadPreferredHeight = (): void => {
   try {
     const stored = localStorage.getItem('textarea-preferred-height')
-    if (stored) {
-      const { height, isExpanded: expanded } = JSON.parse(stored)
-      preferredHeight.value = height
-      isExpanded.value = expanded
+    if (!stored) return
 
-      if (expanded) {
-        textareaRows.value = maxRows.value
-      } else if (height) {
-        // 根据高度计算行数
-        const textareaInner = textareaRef.value.$el.querySelector('.el-textarea__inner') as HTMLElement
-        const computedStyle = getComputedStyle(textareaInner)
-        const lineHeight = parseFloat(computedStyle.lineHeight)
-        const padding = parseFloat(computedStyle.paddingTop) + parseFloat(computedStyle.paddingBottom)
-        const contentHeight = height - padding
-        textareaRows.value = Math.max(
-          minRows.value,
-          Math.min(maxRows.value, Math.round(contentHeight / lineHeight))
-        )
-      }
+    const { height, isExpanded: expanded } = JSON.parse(stored)
+    preferredHeight.value = height
+    isExpanded.value = expanded
+
+    const metrics = getTextareaMetrics()
+    if (!metrics) return
+
+    const { textarea, lineHeight, padding } = metrics
+    const maxHeight = rowsToHeight(lineHeight, padding, maxRows.value)
+    if (expanded) {
+      textarea.style.height = `${maxHeight}px`
+      textarea.style.overflowY = 'auto'
+    } else if (height) {
+      const minHeight = rowsToHeight(lineHeight, padding, minRows.value)
+      textarea.style.height = `${Math.max(minHeight, Math.min(maxHeight, height))}px`
     }
   } catch (error) {
     console.error('加载用户偏好的高度失败:', error)
@@ -1784,14 +1798,10 @@ onUnmounted(() => {
 
 :deep(.el-textarea__inner) {
   resize: none;
-  min-height: 80px;
-  max-height: 25vh;
-  height: auto !important;
-  min-height: 80px !important;
   line-height: 1.6;
   font-size: 14px;
   letter-spacing: 0.5px;
-  transition: all 0.3s ease;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
   overflow-wrap: break-word;
   word-wrap: break-word;
   hyphens: auto;
@@ -1806,8 +1816,6 @@ onUnmounted(() => {
 
 /* 展开状态样式 */
 .textarea-container.expanded :deep(.el-textarea__inner) {
-  min-height: 200px;
-  max-height: 30vh;
   overflow-y: auto;
 }
 

@@ -14,7 +14,7 @@ interface ElectronAPI {
   toggleFullScreen(): Promise<void>
 
   // WebView管理
-  sendMessageToWebView(webviewId: string, message: string): Promise<void>
+  sendMessageToWebView(webviewId: string, message: string): Promise<boolean>
   executeScriptInWebView(webviewId: string, script: string): Promise<any>
   refreshWebView(webviewId: string): Promise<void>
   refreshAllWebViews(): Promise<void>

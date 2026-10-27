@@ -168,10 +168,16 @@ const createWebView = async(): Promise<void> => {
 
 /**
  * 获取用户代理字符串
+ * Gemini与Grok使用固定UA，与主进程会话伪装一致；其他provider移除Electron标识
  */
 const getUserAgent = (): string => {
+  if (originalProviderId.value === 'gemini') {
+    return GEMINI_USER_AGENT
+  }
+  if (originalProviderId.value === 'grok') {
+    return GROK_USER_AGENT
+  }
   const baseUA = navigator.userAgent
-  // 添加自定义标识，避免被某些网站检测为自动化工具
   return baseUA.replace(/Electron\/[\d.]+\s/, '')
 }
 
@@ -219,6 +225,8 @@ const applyStoredProxy = async(): Promise<void> => {
  * UA声称Chrome但brands缺少Google Chrome会被Cloudflare Turnstile判定为自动化环境
  */
 const GROK_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+// Gemini伪装为Windows Chrome 134，与SessionManager请求头伪装、主进程Emulation元数据保持一致
+const GEMINI_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36'
 
 const UA_DATA_SPOOF_SCRIPT = `(() => {
   Object.defineProperty(navigator, 'userAgent', {

@@ -489,7 +489,7 @@ export class IPCHandler extends EventEmitter {
   /**
    * 发送消息到WebView
    */
-  private async handleSendMessageToWebView(data: { webviewId: string; message: string }): Promise<void> {
+  private async handleSendMessageToWebView(data: { webviewId: string; message: string }): Promise<boolean> {
     try {
       this.log(`Sending message to WebView ${data.webviewId}:`, data.message)
 
@@ -536,7 +536,7 @@ export class IPCHandler extends EventEmitter {
             const result = await webviewElement.executeJavaScript(${JSON.stringify(sendScript)});
             
             console.log('[IPC] Script result:', result);
-            return result;
+            return result === true;
           } catch (error) {
             console.error('[IPC] Error in script execution:', error);
             return false;
@@ -547,6 +547,7 @@ export class IPCHandler extends EventEmitter {
       // 执行脚本
       const result = await mainWindow.webContents.executeJavaScript(script)
       this.log(`Message send script executed for ${data.webviewId}, result:`, result)
+      return result === true
     } catch (error) {
       this.log(`Failed to send message to WebView ${data.webviewId}:`, error)
       throw error

@@ -46,21 +46,52 @@ export function getLoginCheckScript(providerId: string): string {
         })
     `,
     copilot: `
-      // 检查Copilot的登录状态: 未登录时存在 Sign in 入口
-      !(document.querySelector('[data-testid*="sign-in"], [class*="sign-in"], [class*="signin"], [aria-label*="Sign in"]'))
+      // 检查Copilot的登录状态: 仅当页面存在可见的 Sign in 入口时判定为未登录
+      // 旧判定用 [class*="sign-in"] 子串匹配，会命中隐藏元素导致永远显示未登录
+      (function () {
+        var candidates = document.querySelectorAll('button, a, [role="button"], [data-testid*="sign-in"]');
+        for (var i = 0; i < candidates.length; i++) {
+          var el = candidates[i];
+          if (!el.getClientRects || el.getClientRects().length === 0) continue;
+          var label = el.getAttribute('aria-label') || '';
+          var text = (el.textContent || '').trim();
+          if (label.indexOf('Sign in') !== -1 || text === 'Sign in' || text === 'Sign In' || text === '登录') {
+            return false;
+          }
+        }
+        return true;
+      })()
     `,
-    glm: '!document.querySelector(".login-btn")',
+    glm: `
+      // 检查GLM的登录状态: 优先读 vuex 持久化的用户信息，回退到 chatglm_token cookie
+      // 站点改版后 .login-btn 已不存在，旧判定会永远返回已登录
+      (function () {
+        try {
+          var raw = localStorage.getItem("vuex");
+          var userInfo = raw ? ((JSON.parse(raw).Home || {}).userInfo || null) : null;
+          if (userInfo) {
+            return !!userInfo.phone && !userInfo.is_guest;
+          }
+        } catch (e) {}
+        return /(?:^|;\\s*)chatglm_token=([^;]+)/.test(document.cookie);
+      })()
+    `,
     yuanbao: `
       // 检查yuanbao的登录状态
       !(document.querySelector('.agent-dialogue__tool__login') && 
       (document.querySelector('.agent-dialogue__tool__login').textContent === '登录'))
     `,
     miromind: `
-      // 检查miromind的登录状态: 未登录时存在 Sign in / Log in 入口
-      !Array.from(document.querySelectorAll('button, a')).some(el => {
-        const t = (el.textContent || '').trim();
-        return t === 'Sign in' || t === 'Sign In' || t === 'Log in' || t === 'Login';
-      })
+      // 检查miromind的登录状态: 优先读 zustand 持久化的 token，回退到侧边栏 DOM
+      // 未登录时 header 不渲染 Sign in 按钮（藏在 More options 弹层里），旧的按钮文本判定会永远返回已登录
+      (function () {
+        try {
+          var raw = localStorage.getItem("mirage-auth-store");
+          var state = raw ? (JSON.parse(raw).state || {}) : {};
+          if (state.token) return true;
+        } catch (e) {}
+        return !!document.querySelector("[data-sidebar]");
+      })()
     `,
     gemini: `
       !!document.querySelector('.gb_be')

@@ -36,8 +36,8 @@ export const useLayoutStore = defineStore('layout', () => {
 
   // 网格布局设置 - 移除行数限制
   const gridSettings = ref({
-    columns: 2,
-    gap: 16,
+    columns: 3,
+    gap: 8,
     minCardWidth: 300,
     minCardHeight: 600
   })
@@ -58,6 +58,9 @@ export const useLayoutStore = defineStore('layout', () => {
 
   // 卡片所属屏幕索引（多屏全屏时由视图层同步）
   const cardScreenIndex = ref<Record<string, number>>({})
+
+  // 输入区高度（多屏全屏时主屏卡片偏移使用，由视图层测量后同步）
+  const inputHeight = ref(0)
 
   // 显示布局（多屏全屏时的屏幕数量与位置）
   const displayLayout = ref<DisplayLayout>({
@@ -210,9 +213,28 @@ export const useLayoutStore = defineStore('layout', () => {
 
   /**
    * 应用最大化几何（位置与尺寸）
+   * 多屏全屏时主屏需让出顶栏、输入区与状态栏，单窗口与副屏保持原几何
    */
   const applyMaximizeGeometry = (config: CardConfig): void => {
     const rect = getMaximizeRect(config.providerId)
+    const { fullScreenState, screenCount, primaryIndex } = displayLayout.value
+    const screenIndex = cardScreenIndex.value[config.providerId]
+    const isPrimary = fullScreenState === 2
+      && screenCount > 1
+      && screenIndex === primaryIndex
+    if (isPrimary) {
+      const topOffset = 60 + inputHeight.value
+      const bottomOffset = 32
+      config.position = {
+        x: rect.x + 16,
+        y: rect.y + topOffset + 16
+      }
+      config.size = {
+        width: rect.width - 32,
+        height: Math.max(0, rect.height - topOffset - bottomOffset - 32)
+      }
+      return
+    }
     config.position = {
       x: rect.x + 16,
       y: rect.y + 16
@@ -228,6 +250,19 @@ export const useLayoutStore = defineStore('layout', () => {
    */
   const setCardScreenIndexes = (map: Record<string, number>): void => {
     cardScreenIndex.value = map
+    Object.values(cardConfigs.value).forEach((config) => {
+      if (config.isMaximized) {
+        applyMaximizeGeometry(config)
+      }
+    })
+  }
+
+  /**
+   * 同步输入区高度，并重新应用已最大化卡片的几何
+   */
+  const setInputHeight = (height: number): void => {
+    if (inputHeight.value === height) return
+    inputHeight.value = height
     Object.values(cardConfigs.value).forEach((config) => {
       if (config.isMaximized) {
         applyMaximizeGeometry(config)
@@ -493,9 +528,11 @@ export const useLayoutStore = defineStore('layout', () => {
     inputAgentCollapsed,
     inputModelCollapsed,
     inputContentCollapsed,
+    inputHeight,
     toggleInputAgent,
     toggleInputModel,
     toggleInputContent,
+    setInputHeight,
     availableWidth,
     availableHeight,
     cardWidth,

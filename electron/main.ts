@@ -1,7 +1,25 @@
 import { app, BrowserWindow } from 'electron'
 import { WindowManager } from './managers/WindowManager'
-import { SessionManager, GROK_USER_AGENT } from './managers/SessionManager'
+import {
+  SessionManager, GROK_USER_AGENT, GEMINI_USER_AGENT, GEMINI_USER_AGENT_METADATA
+} from './managers/SessionManager'
 import { IPCHandler } from './managers/IPCHandler'
+
+/**
+ * Emulation.setUserAgentOverride的Client Hints元数据
+ */
+interface UserAgentMetadata {
+  brands: Array<{ brand: string; version: string }>
+  fullVersionList: Array<{ brand: string; version: string }>
+  fullVersion: string
+  platform: string
+  platformVersion: string
+  architecture: string
+  bitness: string
+  model: string
+  mobile: boolean
+  wow64: boolean
+}
 
 /**
  * 配置Electron命令行开关
@@ -33,48 +51,62 @@ configureCommandLineSwitches()
 // webview guest创建时（文档生成前）统一UA，确保navigator.userAgent（含iframe）与会话UA一致
 // webContents.setUserAgent只作用于网络请求头，renderer端navigator须用Emulation覆盖
 app.on('web-contents-created', (_event, webContents) => {
-  if (webContents.getType() !== 'webview' || webContents.session.getUserAgent() !== GROK_USER_AGENT) return
+  if (webContents.getType() !== 'webview') return
+
+  const sessionUA = webContents.session.getUserAgent()
+  let overrideUA: string
+  let userAgentMetadata: UserAgentMetadata | undefined
+
+  if (sessionUA === GROK_USER_AGENT) {
+    overrideUA = GROK_USER_AGENT
+    userAgentMetadata = {
+      brands: [
+        { brand: 'Not_A Brand', version: '8' },
+        { brand: 'Chromium', version: '120' },
+        { brand: 'Google Chrome', version: '120' }
+      ],
+      fullVersionList: [
+        { brand: 'Not_A Brand', version: '8.0.0.0' },
+        { brand: 'Chromium', version: '120.0.6099.291' },
+        { brand: 'Google Chrome', version: '120.0.6099.291' }
+      ],
+      fullVersion: '120.0.6099.291',
+      platform: 'Windows',
+      platformVersion: '10.0.0',
+      architecture: 'x86',
+      bitness: '64',
+      model: '',
+      mobile: false,
+      wow64: false
+    }
+  } else if (sessionUA === GEMINI_USER_AGENT) {
+    overrideUA = GEMINI_USER_AGENT
+    userAgentMetadata = GEMINI_USER_AGENT_METADATA
+  } else {
+    return
+  }
 
   try {
     webContents.debugger.attach('1.3')
   } catch (error) {
-    console.error('[Main] Failed to attach debugger for Grok UA override:', error)
+    console.error('[Main] Failed to attach debugger for UA override:', error)
     return
   }
 
   const applyUserAgentOverride = (): void => {
     webContents.debugger
       .sendCommand('Emulation.setUserAgentOverride', {
-        userAgent: GROK_USER_AGENT,
+        userAgent: overrideUA,
         platform: 'Windows',
-        userAgentMetadata: {
-          brands: [
-            { brand: 'Not_A Brand', version: '8' },
-            { brand: 'Chromium', version: '120' },
-            { brand: 'Google Chrome', version: '120' }
-          ],
-          fullVersionList: [
-            { brand: 'Not_A Brand', version: '8.0.0.0' },
-            { brand: 'Chromium', version: '120.0.6099.291' },
-            { brand: 'Google Chrome', version: '120.0.6099.291' }
-          ],
-          fullVersion: '120.0.6099.291',
-          platform: 'Windows',
-          platformVersion: '10.0.0',
-          architecture: 'x86',
-          bitness: '64',
-          model: '',
-          mobile: false,
-          wow64: false
-        }
+        userAgentMetadata
       })
-      .catch((error) => console.error('[Main] Failed to apply Grok UA override:', error))
+      .catch((error) => console.error('[Main] Failed to apply UA override:', error))
   }
 
   // 首次导航前renderer可能尚未创建，did-navigate时补发
   applyUserAgentOverride()
   webContents.on('did-navigate', applyUserAgentOverride)
-  console.log('[Main] Applied Grok UA to webview guest')
+  console.log(`[Main] Applied UA to webview guest: ${overrideUA}`)
 })
 
 /**
